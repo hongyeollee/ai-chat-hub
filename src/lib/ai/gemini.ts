@@ -25,7 +25,8 @@ export async function* streamGemini(
   messages: Message[],
   summary?: string | null,
   customInstructions?: string | null,
-  modelSwitchContext?: string | null
+  modelSwitchContext?: string | null,
+  alternativeResponseContext?: string | null
 ): AsyncGenerator<string, void, unknown> {
   const model = getGeminiModel();
 
@@ -44,6 +45,10 @@ export async function* streamGemini(
 
   if (summary) {
     contextParts.push(`[Previous conversation summary: ${summary}]`);
+  }
+
+  if (alternativeResponseContext) {
+    contextParts.push(`[IMPORTANT - Alternative Response Mode]\n${alternativeResponseContext}`);
   }
 
   if (contextParts.length > 0) {

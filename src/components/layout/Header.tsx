@@ -3,8 +3,10 @@
 import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
 import { ThemeToggle } from './ThemeToggle';
+import { UserMenu } from './UserMenu';
 import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { Profile } from '@/types';
 
 export function Header() {
   const t = useTranslations();
@@ -12,38 +14,50 @@ export function Header() {
   const pathname = usePathname();
   const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const fetchedRef = useRef(false);
 
   const currentLocale = pathname.split('/')[1] || 'ko';
 
-  const fetchUsage = useCallback(async () => {
+  const fetchUsageAndProfile = useCallback(async () => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
 
     try {
-      const response = await fetch('/api/usage/today');
-      const result = await response.json();
-      if (result.success) {
-        setRemainingRequests(result.data.remainingRequests);
+      const [usageRes, profileRes] = await Promise.all([
+        fetch('/api/usage/today'),
+        fetch('/api/profile'),
+      ]);
+
+      const usageResult = await usageRes.json();
+      if (usageResult.success) {
+        setRemainingRequests(usageResult.data.remainingRequests);
+      }
+
+      const profileResult = await profileRes.json();
+      if (profileResult.success) {
+        setProfile(profileResult.data);
       }
     } catch (error) {
-      console.error('Failed to fetch usage:', error);
+      console.error('Failed to fetch data:', error);
     }
   }, []);
 
   useEffect(() => {
     const supabase = createClient();
 
-    // onAuthStateChange fires immediately with current state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsLoggedIn(!!session?.user);
       if (session?.user) {
-        fetchUsage();
+        fetchUsageAndProfile();
+      } else {
+        setProfile(null);
+        setRemainingRequests(null);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchUsage]);
+  }, [fetchUsageAndProfile]);
 
   useEffect(() => {
     const handleUsageUpdate = (event: Event) => {
@@ -97,12 +111,7 @@ export function Header() {
         </button>
 
         {isLoggedIn && (
-          <button
-            onClick={handleLogout}
-            className="text-sm px-3 py-1.5 rounded bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-          >
-            {t('auth.logout')}
-          </button>
+          <UserMenu profile={profile} onLogout={handleLogout} />
         )}
       </div>
     </header>

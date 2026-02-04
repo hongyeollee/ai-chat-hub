@@ -92,7 +92,15 @@
   "model": {
     "select": "Select model",
     "gemini": "Gemini",
-    "gpt": "GPT"
+    "gpt": "GPT",
+    "gpt-4o-mini": "GPT-4o Mini",
+    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "deepseek-v3": "DeepSeek V3",
+    "mistral-small-3": "Mistral Small 3",
+    "mistral-medium-3": "Mistral Medium 3",
+    "claude-haiku-3.5": "Claude Haiku 3.5",
+    "gpt-4o": "GPT-4o",
+    "claude-sonnet-4.5": "Claude Sonnet 4.5"
   },
   "usage": {
     "remaining": "Remaining today",
@@ -108,5 +116,138 @@
   "language": {
     "ko": "한국어",
     "en": "English"
+  },
+  "userMenu": {
+    "settings": "Settings",
+    "profile": "Profile"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "profileDescription": "Manage your personal information",
+    "subscription": "Subscription",
+    "subscriptionDescription": "View your plan and billing information",
+    "usage": "Usage",
+    "usageDescription": "Check your current usage and limits",
+    "aiSettings": "AI Settings",
+    "aiSettingsDescription": "Customize how AI responds to you",
+    "saved": "Saved successfully",
+    "saveError": "Failed to save"
+  },
+  "profile": {
+    "name": "Name",
+    "namePlaceholder": "Enter your name",
+    "email": "Email",
+    "language": "Language",
+    "timezone": "Timezone",
+    "marketingConsent": "Marketing communications",
+    "marketingDescription": "Receive updates about new features, tips, and promotions"
+  },
+  "subscription": {
+    "currentPlan": "Current Plan",
+    "free": "Free",
+    "light": "Light",
+    "pro": "Pro",
+    "enterprise": "Enterprise",
+    "upgrade": "Upgrade",
+    "manage": "Manage Subscription",
+    "nextBilling": "Next billing date",
+    "cancelAtPeriodEnd": "Cancels at end of period",
+    "features": "Features"
+  },
+  "credits": {
+    "available": "Available",
+    "used": "Used",
+    "total": "Total credits",
+    "base": "Base",
+    "rollover": "Rollover",
+    "purchased": "Purchased",
+    "purchase": "Purchase Credits",
+    "dailyRemaining": "Remaining today",
+    "dailyMax": "Daily max",
+    "purchaseModal": {
+      "title": "Purchase Credits",
+      "description": "Buy additional credits for more AI conversations",
+      "pricePerUnit": "per 1,000 credits",
+      "quantity": "Quantity",
+      "totalCredits": "Total Credits",
+      "totalPrice": "Total Price",
+      "purchaseButton": "Purchase",
+      "processing": "Preparing payment...",
+      "freeUserNotice": "Credit purchase is only available for paid plan users",
+      "upgradeFirst": "Upgrade Plan"
+    }
+  },
+  "aiSettings": {
+    "preferredModel": "Preferred Model",
+    "preferredModelDescription": "Default model for new conversations",
+    "memory": "Memory",
+    "memoryEnabled": "Enable memory",
+    "memoryDescription": "Remember previous conversations for more contextual responses",
+    "customInstructions": "Custom Instructions",
+    "customInstructionsPlaceholder": "Enter instructions for AI to always follow\ne.g., Always respond in English, include code examples, etc.",
+    "customInstructionsDescription": "Personal settings that AI references in all conversations"
+  },
+  "plans": {
+    "title": "Choose Your Plan",
+    "subtitle": "Select the plan that works best for you",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "yearlyDiscount": "2 months free",
+    "currentPlan": "Current Plan",
+    "selectPlan": "Select",
+    "upgradeTo": "Upgrade to {plan}",
+    "downgradeTo": "Switch to {plan}",
+    "managePlan": "Manage Plan",
+    "perMonth": "/mo",
+    "perYear": "/yr",
+    "free": "Free",
+    "popular": "Popular",
+    "recommended": "Recommended",
+    "features": {
+      "dailyRequests": "{count} requests/day",
+      "monthlyCredits": "{count} credits/month",
+      "maxInputChars": "Up to {count} chars input",
+      "contextMessages": "{count} context messages",
+      "basicModels": "Basic AI models",
+      "mediumModels": "Medium AI models",
+      "premiumModels": "Premium AI models",
+      "allModels": "All AI models unlimited",
+      "exportConversation": "Export conversations",
+      "creditRollover": "Credit rollover",
+      "prioritySupport": "Priority support",
+      "customCredits": "Custom credit allocation",
+      "dedicatedSupport": "Dedicated support",
+      "sla": "SLA guarantee",
+      "customIntegration": "Custom integration support"
+    },
+    "tierDescriptions": {
+      "free": "Try AI Chat Hub for free",
+      "light": "Get started with AI",
+      "pro": "Unlock the full power of AI",
+      "enterprise": "Custom solutions for teams"
+    },
+    "withdrawalConsent": "EU/UK users: I waive my 14-day withdrawal right to access the service immediately",
+    "withdrawalRequired": "You must consent to waive withdrawal rights to proceed",
+    "processingPayment": "Processing payment...",
+    "contactAdmin": "Contact Admin",
+    "compareFeatures": "Compare Features",
+    "allFeatures": "See all features",
+    "enterpriseInquiry": {
+      "title": "Enterprise Plan Inquiry",
+      "description": "Contact us about our custom enterprise plans. We'll get back to you shortly.",
+      "companyName": "Company/Team Name",
+      "companyNamePlaceholder": "Enter your company or team name",
+      "teamSize": "Expected Team Size",
+      "teamSizePlaceholder": "e.g., 10, 50, 100+",
+      "purpose": "Primary Use Case",
+      "purposePlaceholder": "How do you plan to use AI Chat Hub?",
+      "additionalInfo": "Additional Notes (Optional)",
+      "additionalInfoPlaceholder": "Any additional questions or requirements",
+      "submit": "Submit Inquiry",
+      "submitting": "Submitting...",
+      "success": "Your inquiry has been submitted. We'll contact you shortly.",
+      "error": "Failed to submit inquiry. Please try again."
+    }
   }
 }

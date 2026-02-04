@@ -2,21 +2,32 @@
 
 import { useTranslations } from 'next-intl';
 import { useChatStore } from '@/stores/chatStore';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { StreamingMessage } from './StreamingMessage';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import type { Message, AIModel } from '@/types';
+import { AI_MODEL_INFO } from '@/types';
 
-const modelLabels: Record<AIModel, string> = {
-  'gpt-4o-mini': 'GPT',
-  'gemini-2.5-flash': 'Gemini',
+// 모델 표시 정보를 AI_MODEL_INFO에서 가져옴
+const getModelLabel = (model: AIModel): string => {
+  return AI_MODEL_INFO[model]?.name || model;
 };
 
-const modelIcons: Record<AIModel, string> = {
-  'gpt-4o-mini': '🤖',
-  'gemini-2.5-flash': '✨',
+const getModelIcon = (model: AIModel): string => {
+  return AI_MODEL_INFO[model]?.icon || '🤖';
 };
+
+// 저비용 모델 목록 (Free/Light 티어용)
+const LOW_COST_MODELS: AIModel[] = ['gpt-4o-mini', 'gemini-2.5-flash', 'deepseek-v3', 'mistral-small-3'];
 
 function getAlternativeModel(currentModel: AIModel): AIModel {
+  // 같은 카테고리 내에서 다른 모델 선택
+  const currentIndex = LOW_COST_MODELS.indexOf(currentModel);
+  if (currentIndex !== -1) {
+    // 저비용 모델 내에서 순환
+    return LOW_COST_MODELS[(currentIndex + 1) % LOW_COST_MODELS.length];
+  }
+  // 기본값: GPT-4o-mini
   return currentModel === 'gpt-4o-mini' ? 'gemini-2.5-flash' : 'gpt-4o-mini';
 }
 
@@ -92,11 +103,15 @@ function MessageBubble({ message, onAlternativeResponse, isLoadingAlternative, m
       >
         {!isUser && (
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-            <span>{modelIcons[message.model]}</span>
-            <span>{modelLabels[message.model] || message.model}</span>
+            <span>{getModelIcon(message.model)}</span>
+            <span>{getModelLabel(message.model)}</span>
           </div>
         )}
-        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        {isUser ? (
+          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        ) : (
+          <MarkdownRenderer content={message.content} />
+        )}
 
         {/* 다른 모델로 답변받기 버튼 */}
         {showAlternativeButton && alternativeModel && onAlternativeResponse && (
@@ -112,7 +127,7 @@ function MessageBubble({ message, onAlternativeResponse, isLoadingAlternative, m
             `}
           >
             🔄 {t('chat.alternativeResponse', {
-              model: modelLabels[alternativeModel],
+              model: getModelLabel(alternativeModel),
             })}
           </button>
         )}
@@ -140,11 +155,53 @@ export function MessageList() {
     setLastUsedModel,
   } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [loadingAlternativeFor, setLoadingAlternativeFor] = useState<string | null>(null);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
+  const lastScrollTop = useRef(0);
 
+  // Check if user is near bottom (within 100px)
+  const isNearBottom = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return true;
+    const threshold = 100;
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  }, []);
+
+  // Handle scroll events to detect user scrolling up
+  const handleScroll = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const currentScrollTop = container.scrollTop;
+    const isScrollingUp = currentScrollTop < lastScrollTop.current;
+
+    // If user scrolls up while streaming, mark as user-controlled
+    if (isScrollingUp && activeStreamingModels.length > 0) {
+      setUserHasScrolledUp(true);
+    }
+
+    // If user scrolls to bottom, resume auto-scroll
+    if (isNearBottom()) {
+      setUserHasScrolledUp(false);
+    }
+
+    lastScrollTop.current = currentScrollTop;
+  }, [activeStreamingModels.length, isNearBottom]);
+
+  // Reset userHasScrolledUp when streaming ends
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContents, activeStreamingModels]);
+    if (activeStreamingModels.length === 0) {
+      setUserHasScrolledUp(false);
+    }
+  }, [activeStreamingModels.length]);
+
+  // Auto-scroll only when user hasn't scrolled up
+  useEffect(() => {
+    if (!userHasScrolledUp) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, streamingContents, activeStreamingModels, userHasScrolledUp]);
 
   const refreshUsage = async (remainingRequests?: number) => {
     if (typeof window === 'undefined') return;
@@ -208,8 +265,9 @@ export function MessageList() {
           conversationId: currentConversationId,
           content: userMessage.content,
           model: alternativeModel,
-          previousModel: lastUsedModel,
+          previousModel: assistantMessage.model,
           parentMessageId: userMessage.id,
+          isAlternativeResponse: true,
         }),
       });
 
@@ -291,7 +349,11 @@ export function MessageList() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto p-4 space-y-4"
+    >
       {messages.map((message) => (
         <MessageBubble
           key={message.id}
@@ -330,8 +392,8 @@ export function MessageList() {
         <div key={model} className="flex justify-start">
           <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md">
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-              <span>{modelIcons[model]}</span>
-              <span>{modelLabels[model] || model}</span>
+              <span>{getModelIcon(model)}</span>
+              <span>{getModelLabel(model)}</span>
             </div>
             <StreamingMessage content={streamingContents[model] || ''} />
           </div>

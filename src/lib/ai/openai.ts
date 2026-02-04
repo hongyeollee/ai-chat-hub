@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { Message } from '@/types';
+import type { Message, AIModel } from '@/types';
 
 let openaiClient: OpenAI | null = null;
 
@@ -14,6 +14,12 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
+// OpenAI 모델 ID 매핑
+const OPENAI_MODEL_MAP: Record<string, string> = {
+  'gpt-4o-mini': 'gpt-4o-mini',
+  'gpt-4o': 'gpt-4o',
+};
+
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -23,15 +29,19 @@ export async function* streamOpenAI(
   messages: Message[],
   summary?: string | null,
   customInstructions?: string | null,
-  modelSwitchContext?: string | null
+  modelSwitchContext?: string | null,
+  alternativeResponseContext?: string | null,
+  model: AIModel = 'gpt-4o-mini'
 ): AsyncGenerator<string, void, unknown> {
   const openai = getOpenAIClient();
+  const openaiModel = OPENAI_MODEL_MAP[model] || 'gpt-4o-mini';
 
   // System prompt 구성
   // 1. 기본 역할
   // 2. 사용자 맞춤 지시사항 (custom_instructions)
   // 3. 이전 대화 요약 (summary)
-  let systemContent = 'You are a helpful AI assistant.';
+  // 4. 대체 응답 컨텍스트 (alternativeResponseContext)
+  let systemContent = 'You are a helpful AI assistant powered by OpenAI.';
 
   if (customInstructions) {
     systemContent += `\n\nUser preferences:\n${customInstructions}`;
@@ -43,6 +53,10 @@ export async function* streamOpenAI(
 
   if (summary) {
     systemContent += `\n\nPrevious conversation summary:\n${summary}\n\nContinue the conversation naturally.`;
+  }
+
+  if (alternativeResponseContext) {
+    systemContent += `\n\n[IMPORTANT - Alternative Response Mode]\n${alternativeResponseContext}`;
   }
 
   const systemMessage: ChatMessage = {
@@ -59,7 +73,7 @@ export async function* streamOpenAI(
   ];
 
   const stream = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: openaiModel,
     messages: chatMessages,
     stream: true,
   });
@@ -70,6 +84,29 @@ export async function* streamOpenAI(
       yield content;
     }
   }
+}
+
+// Helper to check if error is quota related
+export function isQuotaError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('429') ||
+           error.message.includes('quota') ||
+           error.message.includes('rate limit');
+  }
+  return false;
+}
+
+// Get user-friendly error message
+export function getOpenAIErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    if (error.message.includes('429') || error.message.includes('quota')) {
+      return 'GPT 서비스가 일시적으로 사용량 한도에 도달했습니다. Gemini를 사용해 주세요.';
+    }
+    if (error.message.includes('rate limit')) {
+      return 'GPT 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+    }
+  }
+  return 'GPT 응답 중 오류가 발생했습니다.';
 }
 
 export async function generateSummary(messages: Message[]): Promise<string> {
