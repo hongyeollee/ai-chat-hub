@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 interface StreamingMessageProps {
   content: string;
@@ -19,9 +20,9 @@ export function StreamingMessage({ content }: StreamingMessageProps) {
   }
 
   return (
-    <div className="whitespace-pre-wrap break-words">
-      {content}
-      <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse" />
+    <div className="relative">
+      <MarkdownRenderer content={content} />
+      <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse absolute" />
     </div>
   );
 }
