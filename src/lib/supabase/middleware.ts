@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     : pathname;
 
   // Protected routes - redirect to login if not authenticated
-  const protectedPaths = ['/chat'];
+  const protectedPaths = ['/chat', '/settings', '/plans'];
   const isProtectedRoute = protectedPaths.some(path =>
     pathWithoutLocale.startsWith(path)
   );

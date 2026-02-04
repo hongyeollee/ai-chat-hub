@@ -99,36 +99,43 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          w-72 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+          w-72 sidebar
           transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         <div className="h-full flex flex-col">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="p-4 border-b border-[var(--border)]">
             <button
               onClick={handleNewChat}
-              className="w-full py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+              className="w-full btn-primary flex items-center justify-center gap-2"
             >
-              + {t('chat.newChat')}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              {t('chat.newChat')}
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
-            <h2 className="px-2 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+          <div className="flex-1 overflow-y-auto p-3">
+            <h2 className="px-2 py-1 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
               {t('chat.conversations')}
             </h2>
 
             {loading ? (
-              <div className="p-4 text-center text-gray-500">{t('common.loading')}</div>
+              <div className="space-y-2 mt-3">
+                <div className="skeleton h-10 w-full"></div>
+                <div className="skeleton h-10 w-full"></div>
+                <div className="skeleton h-10 w-3/4"></div>
+              </div>
             ) : conversations.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
+              <div className="p-4 text-center text-[var(--text-muted)] text-sm">
                 {t('chat.noConversations')}
               </div>
             ) : (
               <ul className="space-y-1 mt-2">
                 {conversations.map((conversation) => (
-                  <li key={conversation.id}>
+                  <li key={conversation.id} className="animate-fade-in">
                     <div
                       role="button"
                       tabIndex={0}
@@ -140,23 +147,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                         }
                       }}
                       className={`
-                        w-full text-left px-3 py-2 rounded-lg group flex items-center justify-between cursor-pointer
-                        ${
-                          currentConversationId === conversation.id
-                            ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                            : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }
+                        sidebar-item w-full text-left group flex items-center justify-between
+                        ${currentConversationId === conversation.id ? 'active' : ''}
                       `}
                     >
-                      <span className="truncate flex-1">
+                      <span className="truncate flex-1 text-sm">
                         {conversation.title || 'New conversation'}
                       </span>
                       <button
                         onClick={(e) => handleDeleteConversation(e, conversation.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[var(--surface-active)] rounded-md transition-all"
                         title={t('chat.deleteConversation')}
                       >
-                        🗑️
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                       </button>
                     </div>
                   </li>
