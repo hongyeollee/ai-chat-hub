@@ -1,10 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { streamOpenAI } from '@/lib/ai/openai';
+import { streamOpenAI, getOpenAIErrorMessage, isQuotaError } from '@/lib/ai/openai';
 import { streamGemini } from '@/lib/ai/gemini';
-import { prepareMessagesForAI, shouldUpdateSummary, generateSummary, buildModelSwitchContext } from '@/lib/ai/context';
-import { getKoreanDate, canMakeRequest, getRemainingUsage } from '@/lib/utils/usage';
-import type { Message, AIModel, Profile } from '@/types';
+import { streamDeepSeek, getDeepSeekErrorMessage, isDeepSeekQuotaError } from '@/lib/ai/deepseek';
+import { streamMistral, getMistralErrorMessage, isMistralQuotaError } from '@/lib/ai/mistral';
+import { streamClaude, getClaudeErrorMessage, isClaudeQuotaError } from '@/lib/ai/claude';
+import {
+  getMessagesForContextByTier,
+  shouldUpdateSummary,
+  generateSummary,
+  buildModelSwitchContext,
+} from '@/lib/ai/context';
+import {
+  getKoreanDate,
+  getRemainingUsage,
+  getModelCreditCost,
+  getEffectiveLimits,
+  checkUsageWithOverride,
+  validateInputLengthWithOverride,
+  isModelAllowedWithOverride,
+} from '@/lib/utils/usage';
+import { getUserCredits, deductCredits } from '@/lib/utils/credits';
+import type { Message, AIModel, Profile, SubscriptionTier } from '@/types';
+import { TIER_LIMITS, AI_MODEL_INFO } from '@/types';
+
+// 지원되는 모델 목록
+const SUPPORTED_MODELS: AIModel[] = [
+  'gpt-4o-mini',
+  'gemini-2.5-flash',
+  'deepseek-v3',
+  'mistral-small-3',
+  'mistral-medium-3',
+  'claude-haiku-3.5',
+  'gpt-4o',
+  'claude-sonnet-4.5',
+];
 
 // POST /api/messages - Send a message and get AI response (streaming)
 export async function POST(request: NextRequest) {
@@ -19,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { conversationId, content, model, previousModel, parentMessageId } = await request.json();
+    const { conversationId, content, model, previousModel, parentMessageId, isAlternativeResponse } = await request.json();
 
     if (!content || typeof content !== 'string') {
       return NextResponse.json(
@@ -28,41 +58,102 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!model || !['gpt-4o-mini', 'gemini-2.5-flash'].includes(model)) {
+    if (!model || !SUPPORTED_MODELS.includes(model)) {
       return NextResponse.json(
         { success: false, error: 'Invalid model' },
         { status: 400 }
       );
     }
 
-    // Check usage limits
+    // 프로필에서 구독 티어, 메모리 설정, 커스텀 지시사항 가져오기
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('subscription_tier, custom_instructions, memory_enabled')
+      .eq('id', user.id)
+      .single();
+
+    const tier = (profile?.subscription_tier || 'free') as SubscriptionTier;
+    const tierConfig = TIER_LIMITS[tier];
+    const customInstructions = (profile as Profile | null)?.custom_instructions || null;
+    const memoryEnabled = (profile as Profile | null)?.memory_enabled ?? true;
+
+    // 오버라이드 적용된 실제 제한값 가져오기
+    const effectiveLimits = await getEffectiveLimits(user.id, tier);
+
+    // 모델 접근 권한 확인 (오버라이드 적용)
+    const modelAllowed = await isModelAllowedWithOverride(user.id, model, tier);
+    if (!modelAllowed) {
+      const modelInfo = AI_MODEL_INFO[model as AIModel];
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'model_not_allowed',
+          message: `${modelInfo.name}은(는) 현재 사용할 수 없습니다. 업그레이드가 필요합니다.`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 입력 글자 수 검증 (오버라이드 적용)
+    const inputValidation = await validateInputLengthWithOverride(user.id, content, tier);
+    if (!inputValidation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'input_too_long',
+          message: `입력이 너무 깁니다. (${inputValidation.currentLength}자 / 최대 ${inputValidation.maxLength}자)`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 사용량 확인 (오버라이드 적용 - Free/테스터: 일일 횟수, 유료: 크레딧)
     const dateKr = getKoreanDate();
-    const { data: usage } = await supabase
+    let dailyRequestCount = 0;
+    let dailyCharCount = 0;
+    let availableCredits = 0;
+
+    // 일일 사용량 조회 (daily 방식용)
+    const { data: dailyUsage } = await supabase
       .from('daily_usage')
       .select('*')
       .eq('user_id', user.id)
       .eq('date_kr', dateKr)
       .single();
 
-    const requestCount = usage?.request_count || 0;
-    const charCount = usage?.char_count || 0;
+    dailyRequestCount = dailyUsage?.request_count || 0;
+    dailyCharCount = dailyUsage?.char_count || 0;
 
-    const { allowed, reason } = canMakeRequest(requestCount, charCount);
-    if (!allowed) {
-      return NextResponse.json(
-        { success: false, error: reason },
-        { status: 429 }
-      );
+    // 크레딧 조회 (credits 방식용)
+    const credits = await getUserCredits(user.id);
+    availableCredits = credits?.available || 0;
+
+    // 오버라이드 적용된 사용량 체크
+    const usageCheck = await checkUsageWithOverride(
+      user.id,
+      tier,
+      dailyRequestCount,
+      availableCredits,
+      model
+    );
+
+    if (!usageCheck.allowed) {
+      if (usageCheck.usageType === 'daily') {
+        return NextResponse.json(
+          { success: false, error: usageCheck.reason },
+          { status: 429 }
+        );
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: usageCheck.reason,
+            message: `크레딧이 부족합니다. (잔여: ${availableCredits}, 필요: ${usageCheck.creditsNeeded})`,
+          },
+          { status: 429 }
+        );
+      }
     }
-
-    // Fetch user profile for custom_instructions
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('custom_instructions')
-      .eq('id', user.id)
-      .single();
-
-    const customInstructions = (profile as Profile | null)?.custom_instructions || null;
 
     // Update last_active_at
     await supabase
@@ -147,15 +238,47 @@ export async function POST(request: NextRequest) {
       .eq('conversation_id', actualConversationId)
       .order('created_at', { ascending: true });
 
-    const { messages: contextMessages, summary } = prepareMessagesForAI(
-      (allMessages as Message[]) || [],
-      conversation?.summary || null
-    );
+    // 메모리 활성화 여부에 따라 컨텍스트 메시지 처리
+    // memoryEnabled가 false면 이전 대화 컨텍스트 없이 현재 메시지만 사용
+    const contextMessages = memoryEnabled
+      ? getMessagesForContextByTier((allMessages as Message[]) || [], tier)
+      : [];
+
+    // Pro/Enterprise 티어만 요약 사용 (메모리 비활성화 시 요약도 미사용)
+    const useSummary = memoryEnabled && (tier === 'pro' || tier === 'enterprise');
+    const summary = useSummary ? conversation?.summary || null : null;
 
     const modelChanged = previousModel && previousModel !== model;
     const modelSwitchContext = modelChanged
       ? buildModelSwitchContext((allMessages as Message[]) || [])
       : null;
+
+    // Build alternative response context if this is an alternative response request
+    let alternativeResponseContext: string | null = null;
+    if (isAlternativeResponse && parentMessageId) {
+      // Find the original user question and the other AI's response
+      const userQuestion = (allMessages as Message[])?.find(m => m.id === parentMessageId);
+      const otherAiResponses = (allMessages as Message[])?.filter(
+        m => m.parent_message_id === parentMessageId && m.role === 'assistant'
+      );
+
+      if (userQuestion && otherAiResponses.length > 0) {
+        const otherResponses = otherAiResponses
+          .map(r => {
+            const modelInfo = AI_MODEL_INFO[r.model as AIModel];
+            const modelName = modelInfo?.name || r.model;
+            return `${modelName}: ${r.content.slice(0, 500)}${r.content.length > 500 ? '...' : ''}`;
+          })
+          .join('\n\n');
+
+        alternativeResponseContext = `The user asked: "${userQuestion.content}"
+
+Another AI has already provided a response:
+${otherResponses}
+
+Now it's YOUR turn to answer the SAME question. Provide your own unique perspective and answer. Focus on answering the user's question directly with your own knowledge and approach.`;
+      }
+    }
 
     // Create streaming response
     const encoder = new TextEncoder();
@@ -170,9 +293,17 @@ export async function POST(request: NextRequest) {
           );
 
           // Stream AI response (custom_instructions 포함)
-          const streamFn = model === 'gpt-4o-mini' ? streamOpenAI : streamGemini;
+          // 모델별 스트리밍 함수 선택
+          const streamGenerator = getStreamGeneratorForModel(
+            model,
+            contextMessages,
+            summary,
+            customInstructions,
+            modelSwitchContext,
+            alternativeResponseContext
+          );
 
-          for await (const token of streamFn(contextMessages, summary, customInstructions, modelSwitchContext)) {
+          for await (const token of streamGenerator) {
             fullResponse += token;
             controller.enqueue(
               encoder.encode(`event: token\ndata: ${JSON.stringify({ token })}\n\n`)
@@ -192,21 +323,37 @@ export async function POST(request: NextRequest) {
             .select()
             .single();
 
-          // Update usage
-          await supabase
-            .from('daily_usage')
-            .upsert({
-              user_id: user.id,
-              date_kr: dateKr,
-              request_count: requestCount + 1,
-              char_count: charCount + content.length,
-              updated_at: new Date().toISOString(),
-            });
+          // Update usage based on effective usage type (override applied)
+          let remainingUsage: { remainingRequests?: number; remainingCredits?: number } = {};
 
-          const remainingUsage = getRemainingUsage(
-            requestCount + 1,
-            charCount + content.length
-          );
+          if (usageCheck.usageType === 'daily') {
+            // 일일 횟수 방식 (Free 티어 또는 daily 오버라이드 테스터)
+            await supabase
+              .from('daily_usage')
+              .upsert({
+                user_id: user.id,
+                date_kr: dateKr,
+                request_count: dailyRequestCount + 1,
+                char_count: dailyCharCount + content.length,
+                updated_at: new Date().toISOString(),
+              });
+
+            const maxRequests = effectiveLimits.dailyRequests || 10;
+            remainingUsage = { remainingRequests: Math.max(0, maxRequests - dailyRequestCount - 1) };
+          } else {
+            // 크레딧 방식 (유료 티어 또는 credits 오버라이드 테스터)
+            const deductResult = await deductCredits(
+              user.id,
+              model,
+              assistantMessage?.id
+            );
+
+            if (deductResult.success) {
+              remainingUsage = { remainingCredits: deductResult.remaining };
+            } else {
+              console.error('Failed to deduct credits:', deductResult.error);
+            }
+          }
 
           // Update conversation timestamp
           await supabase
@@ -214,9 +361,9 @@ export async function POST(request: NextRequest) {
             .update({ updated_at: new Date().toISOString() })
             .eq('id', actualConversationId);
 
-          // Check if we need to update summary
+          // Check if we need to update summary (Pro/Enterprise only)
           const totalMessages = (allMessages?.length || 0) + 2; // +2 for new user and assistant messages
-          if (shouldUpdateSummary(totalMessages)) {
+          if (shouldUpdateSummary(totalMessages, tier)) {
             const newSummary = await generateSummary((allMessages as Message[]) || []);
             await supabase
               .from('conversations')
@@ -228,22 +375,29 @@ export async function POST(request: NextRequest) {
             encoder.encode(
               `event: done\ndata: ${JSON.stringify({
                 messageId: assistantMessage?.id,
-                remainingRequests: remainingUsage.remainingRequests,
+                tier,
+                usageType: usageCheck.usageType,
+                hasOverride: effectiveLimits.hasOverride,
+                ...remainingUsage,
               })}\n\n`
             )
           );
           controller.close();
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const rawErrorMessage = error instanceof Error ? error.message : 'Unknown error';
           console.error('Streaming error:', error);
           console.error('Error details:', {
             model,
             conversationId: actualConversationId,
             messageCount: contextMessages.length,
-            errorMessage,
+            errorMessage: rawErrorMessage,
           });
+
+          // Use user-friendly error message based on model provider
+          const userFriendlyMessage = getProviderErrorMessage(model, error);
+
           controller.enqueue(
-            encoder.encode(`event: error\ndata: ${JSON.stringify({ error: errorMessage })}\n\n`)
+            encoder.encode(`event: error\ndata: ${JSON.stringify({ error: userFriendlyMessage })}\n\n`)
           );
           controller.close();
         }
@@ -264,4 +418,119 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Helper: 모델별 스트리밍 함수 선택
+function getStreamGeneratorForModel(
+  model: AIModel,
+  messages: Message[],
+  summary: string | null,
+  customInstructions: string | null,
+  modelSwitchContext: string | null,
+  alternativeResponseContext: string | null
+): AsyncGenerator<string, void, unknown> {
+  switch (model) {
+    // OpenAI models
+    case 'gpt-4o-mini':
+    case 'gpt-4o':
+      return streamOpenAI(
+        messages,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext,
+        model
+      );
+
+    // Google Gemini
+    case 'gemini-2.5-flash':
+      return streamGemini(
+        messages,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext
+      );
+
+    // DeepSeek
+    case 'deepseek-v3':
+      return streamDeepSeek(
+        messages,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext
+      );
+
+    // Mistral models
+    case 'mistral-small-3':
+    case 'mistral-medium-3':
+      return streamMistral(
+        messages,
+        model,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext
+      );
+
+    // Claude/Anthropic models
+    case 'claude-haiku-3.5':
+    case 'claude-sonnet-4.5':
+      return streamClaude(
+        messages,
+        model,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext
+      );
+
+    default:
+      // Fallback to GPT-4o-mini
+      return streamOpenAI(
+        messages,
+        summary,
+        customInstructions,
+        modelSwitchContext,
+        alternativeResponseContext,
+        'gpt-4o-mini'
+      );
+  }
+}
+
+// Helper: 프로바이더별 에러 메시지 처리
+function getProviderErrorMessage(model: AIModel, error: unknown): string {
+  const rawErrorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+  switch (model) {
+    case 'gpt-4o-mini':
+    case 'gpt-4o':
+      if (isQuotaError(error)) {
+        return getOpenAIErrorMessage(error);
+      }
+      break;
+
+    case 'deepseek-v3':
+      if (isDeepSeekQuotaError(error)) {
+        return getDeepSeekErrorMessage(error);
+      }
+      break;
+
+    case 'mistral-small-3':
+    case 'mistral-medium-3':
+      if (isMistralQuotaError(error)) {
+        return getMistralErrorMessage(error);
+      }
+      break;
+
+    case 'claude-haiku-3.5':
+    case 'claude-sonnet-4.5':
+      if (isClaudeQuotaError(error)) {
+        return getClaudeErrorMessage(error);
+      }
+      break;
+  }
+
+  return rawErrorMessage;
 }
