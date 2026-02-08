@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'AI Chat Hub',
+  title: 'NexusAI',
   description: 'Multiple AI wisdom in one conversation',
 };
 

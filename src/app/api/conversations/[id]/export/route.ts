@@ -175,7 +175,7 @@ function convertToMarkdown(data: ExportedConversation): string {
   }
 
   lines.push('');
-  lines.push('*Exported from AI Chat Hub*');
+  lines.push('*Exported from NexusAI*');
 
   return lines.join('\n');
 }

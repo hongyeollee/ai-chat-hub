@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       from: fromAddress,
       to: fromAddress, // Send to self
       bcc: adminEmails, // BCC to all admins
-      subject: `[AI Chat Hub] Enterprise 플랜 문의 - ${companyName}`,
+      subject: `[NexusAI] Enterprise 플랜 문의 - ${companyName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #7c3aed; border-bottom: 2px solid #7c3aed; padding-bottom: 10px;">
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <p style="color: #666; font-size: 14px; margin-top: 30px;">
-            이 메일은 AI Chat Hub Enterprise 플랜 문의 시스템에서 자동으로 발송되었습니다.
+            이 메일은 NexusAI Enterprise 플랜 문의 시스템에서 자동으로 발송되었습니다.
           </p>
         </div>
       `,

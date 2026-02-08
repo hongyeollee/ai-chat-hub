@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: fromAddress,
       to: email,
-      subject: 'Your verification code for AI Chat Hub',
+      subject: 'Your verification code for NexusAI',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #333;">Verification Code</h1>
