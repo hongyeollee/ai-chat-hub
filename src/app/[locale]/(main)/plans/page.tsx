@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
 import { PlanCard } from '@/components/plans/PlanCard';
-import { type SubscriptionTier, isWithdrawalRightCountry } from '@/types';
+import { type SubscriptionTier, isWithdrawalRightCountry, TIER_LIMITS } from '@/types';
 
 interface SubscriptionData {
   tier: SubscriptionTier;
@@ -35,6 +35,12 @@ export default function PlansPage() {
   });
   const [isSubmittingEnterprise, setIsSubmittingEnterprise] = useState(false);
   const [enterpriseSuccess, setEnterpriseSuccess] = useState(false);
+
+  // 결제 준비 중 모달 상태
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedUpgradeTier, setSelectedUpgradeTier] = useState<SubscriptionTier | null>(null);
+  const [isSubmittingInterest, setIsSubmittingInterest] = useState(false);
+  const [interestSubmitted, setInterestSubmitted] = useState(false);
 
   const currentLocale = pathname.split('/')[1] || 'ko';
 
@@ -78,15 +84,10 @@ export default function PlansPage() {
       return;
     }
 
-    // EU/UK 사용자인 경우 철회권 동의 필요
-    if (isWithdrawalRightCountry(subscription.countryCode)) {
-      setPendingTier(tier);
-      setShowWithdrawalConsent(true);
-      return;
-    }
-
-    // 결제 진행
-    await processCheckout(tier, false);
+    // 결제 연동 전: 업그레이드 관심 모달 표시
+    setSelectedUpgradeTier(tier);
+    setShowUpgradeModal(true);
+    setInterestSubmitted(false);
   };
 
   const processCheckout = async (tier: SubscriptionTier, consent: boolean) => {
@@ -143,6 +144,40 @@ export default function PlansPage() {
       setShowWithdrawalConsent(false);
       processCheckout(pendingTier, true);
     }
+  };
+
+  const handleSubmitInterest = async () => {
+    if (!selectedUpgradeTier) return;
+
+    setIsSubmittingInterest(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/plans/upgrade-interest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: selectedUpgradeTier }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setInterestSubmitted(true);
+      } else {
+        setError(result.error || t('plans.upgradeModal.error'));
+      }
+    } catch (error) {
+      console.error('Submit interest error:', error);
+      setError(t('plans.upgradeModal.error'));
+    } finally {
+      setIsSubmittingInterest(false);
+    }
+  };
+
+  const closeUpgradeModal = () => {
+    setShowUpgradeModal(false);
+    setSelectedUpgradeTier(null);
+    setInterestSubmitted(false);
   };
 
   const handleEnterpriseSubmit = async () => {
@@ -331,6 +366,100 @@ export default function PlansPage() {
                   {t('common.confirm')}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upgrade Interest Modal (결제 준비 중) */}
+        {showUpgradeModal && selectedUpgradeTier && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[var(--surface)] rounded-2xl p-6 max-w-md w-full animate-fade-in">
+              {interestSubmitted ? (
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                    <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                    {t('plans.upgradeModal.successTitle')}
+                  </h3>
+                  <p className="text-sm text-[var(--text-muted)] mb-6">
+                    {t('plans.upgradeModal.successDescription')}
+                  </p>
+                  <button
+                    onClick={closeUpgradeModal}
+                    className="btn-primary px-6 py-2"
+                  >
+                    {t('common.close')}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                      <svg className="w-7 h-7 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+                      {t('plans.upgradeModal.title')}
+                    </h3>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      {t('plans.upgradeModal.description')}
+                    </p>
+                  </div>
+
+                  <div className="bg-[var(--background)] rounded-xl p-4 mb-6">
+                    <p className="text-sm text-[var(--text-secondary)] mb-3">
+                      {t('plans.upgradeModal.selectedPlan')}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-[var(--text-primary)]">
+                        {TIER_LIMITS[selectedUpgradeTier].name}
+                      </span>
+                      <span className="text-[var(--primary)] font-bold">
+                        ${TIER_LIMITS[selectedUpgradeTier].price.monthly}/월
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-[var(--text-muted)] mb-6 text-center">
+                    {t('plans.upgradeModal.interestPrompt')}
+                  </p>
+
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={handleSubmitInterest}
+                      disabled={isSubmittingInterest}
+                      className="btn-primary py-3 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingInterest ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          {t('plans.upgradeModal.submitting')}
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          {t('plans.upgradeModal.interested')}
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={closeUpgradeModal}
+                      className="btn-secondary py-2"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
