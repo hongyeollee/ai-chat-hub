@@ -82,7 +82,16 @@ export function MessageInput() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send message');
+        const errorCode = errorData?.error;
+        const errorMessage = errorCode === 'insufficient_credits'
+          ? errorCode
+          : errorCode || errorData?.message || 'Failed to send message';
+        setError(errorMessage);
+        return {
+          conversationId: conversationId || '',
+          userMessageId: userMessageId || '',
+          success: false,
+        };
       }
 
       if (!response.body) {

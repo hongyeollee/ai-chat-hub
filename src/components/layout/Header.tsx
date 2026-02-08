@@ -2,17 +2,26 @@
 
 import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Profile } from '@/types';
 
+interface UsageData {
+  usageType: 'daily' | 'credits';
+  remainingRequests?: number;
+  credits?: {
+    available: number;
+  };
+}
+
 export function Header() {
   const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
-  const [remainingRequests, setRemainingRequests] = useState<number | null>(null);
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const fetchedRef = useRef(false);
@@ -31,7 +40,7 @@ export function Header() {
 
       const usageResult = await usageRes.json();
       if (usageResult.success) {
-        setRemainingRequests(usageResult.data.remainingRequests);
+        setUsageData(usageResult.data);
       }
 
       const profileResult = await profileRes.json();
@@ -52,7 +61,7 @@ export function Header() {
         fetchUsageAndProfile();
       } else {
         setProfile(null);
-        setRemainingRequests(null);
+        setUsageData(null);
       }
     });
 
@@ -61,9 +70,15 @@ export function Header() {
 
   useEffect(() => {
     const handleUsageUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{ remainingRequests?: number }>;
+      const customEvent = event as CustomEvent<{ remainingRequests?: number; remainingCredits?: number }>;
       if (typeof customEvent.detail?.remainingRequests === 'number') {
-        setRemainingRequests(customEvent.detail.remainingRequests);
+        setUsageData(prev => prev ? { ...prev, remainingRequests: customEvent.detail.remainingRequests } : null);
+      }
+      if (typeof customEvent.detail?.remainingCredits === 'number') {
+        setUsageData(prev => prev ? {
+          ...prev,
+          credits: { available: customEvent.detail.remainingCredits! }
+        } : null);
       }
     };
 
@@ -89,15 +104,26 @@ export function Header() {
   return (
     <header className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <Link
+          href={`/${currentLocale}`}
+          className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
           {t('common.appName')}
-        </h1>
+        </Link>
       </div>
 
       <div className="flex items-center gap-4">
-        {isLoggedIn && remainingRequests !== null && (
+        {isLoggedIn && usageData && (
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            {t('usage.remaining')}: {t('usage.requests', { count: remainingRequests })}
+            {usageData.usageType === 'daily' ? (
+              <>
+                {t('usage.remaining')}: {t('usage.requests', { count: usageData.remainingRequests ?? 0 })}
+              </>
+            ) : (
+              <>
+                {t('usage.credits')}: {(usageData.credits?.available ?? 0).toLocaleString()}
+              </>
+            )}
           </div>
         )}
 

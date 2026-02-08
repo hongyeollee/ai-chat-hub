@@ -1,12 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { usePathname, useRouter } from 'next/navigation';
 import { useChatStore } from '@/stores/chatStore';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { StreamingMessage } from './StreamingMessage';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import type { Message, AIModel } from '@/types';
-import { AI_MODEL_INFO } from '@/types';
+import { AI_MODEL_INFO, type Message, type AIModel } from '@/types';
 
 // 모델 표시 정보를 AI_MODEL_INFO에서 가져옴
 const getModelLabel = (model: AIModel): string => {
@@ -138,6 +138,8 @@ function MessageBubble({ message, onAlternativeResponse, isLoadingAlternative, m
 
 export function MessageList() {
   const t = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
   const {
     messages,
     isStreaming,
@@ -145,6 +147,7 @@ export function MessageList() {
     activeStreamingModels,
     error,
     clearError,
+    setError,
     currentConversationId,
     addActiveStreamingModel,
     removeActiveStreamingModel,
@@ -153,12 +156,46 @@ export function MessageList() {
     addMessage,
     lastUsedModel,
     setLastUsedModel,
+    selectedModels,
   } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [loadingAlternativeFor, setLoadingAlternativeFor] = useState<string | null>(null);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
   const lastScrollTop = useRef(0);
+  const [creditData, setCreditData] = useState<{
+    usageType: 'daily' | 'credits';
+    tier: string;
+    credits?: {
+      available: number;
+      total: number;
+      used: number;
+      base: number;
+      rollover: number;
+      purchased: number;
+    };
+  } | null>(null);
+  const [isCreditLoading, setIsCreditLoading] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [purchaseQuantity, setPurchaseQuantity] = useState(1);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  const currentLocale = pathname.split('/')[1] || 'ko';
+  const isInsufficientCredits = error === 'insufficient_credits';
+  const activeModel = lastUsedModel || selectedModels[0];
+  const activeModelInfo = activeModel ? AI_MODEL_INFO[activeModel] : null;
+  const canPurchaseCredits = creditData?.usageType === 'credits' && creditData?.tier !== 'free';
+  const isFreeTier = creditData?.tier === 'free' || creditData?.usageType === 'daily';
+
+  const CREDIT_PRICES: Record<string, number> = {
+    light: 2.99,
+    pro: 1.99,
+  };
+  const pricePerUnit = creditData?.tier ? CREDIT_PRICES[creditData.tier] || 0 : 0;
+  const totalCredits = purchaseQuantity * 1000;
+  const totalPrice = (pricePerUnit * purchaseQuantity).toFixed(2);
+
 
   // Check if user is near bottom (within 100px)
   const isNearBottom = useCallback(() => {
@@ -196,6 +233,31 @@ export function MessageList() {
     }
   }, [activeStreamingModels.length]);
 
+  useEffect(() => {
+    if (!isInsufficientCredits) return;
+    let isMounted = true;
+
+    const fetchCredits = async () => {
+      try {
+        setIsCreditLoading(true);
+        const response = await fetch('/api/credits');
+        const result = await response.json();
+        if (isMounted && result.success) {
+          setCreditData(result.data);
+        }
+      } catch (fetchError) {
+        console.error('Failed to fetch credits:', fetchError);
+      } finally {
+        if (isMounted) setIsCreditLoading(false);
+      }
+    };
+
+    fetchCredits();
+    return () => {
+      isMounted = false;
+    };
+  }, [isInsufficientCredits]);
+
   // Auto-scroll only when user hasn't scrolled up
   useEffect(() => {
     if (!userHasScrolledUp) {
@@ -229,6 +291,171 @@ export function MessageList() {
       console.error('Failed to refresh usage:', error);
     }
   };
+
+  const handleOpenPurchaseModal = () => {
+    setPurchaseQuantity(1);
+    setPurchaseError(null);
+    setShowPurchaseModal(true);
+  };
+
+  const handleClosePurchaseModal = () => {
+    setShowPurchaseModal(false);
+    setPurchaseError(null);
+  };
+
+  const handlePurchase = async () => {
+    setIsPurchasing(true);
+    setPurchaseError(null);
+
+    try {
+      const response = await fetch('/api/credits/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: purchaseQuantity }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data.url) {
+        window.location.href = result.data.url;
+      } else {
+        setPurchaseError(result.error || t('common.error'));
+        setIsPurchasing(false);
+      }
+    } catch (purchaseErr) {
+      console.error('Credit purchase error:', purchaseErr);
+      setPurchaseError(t('common.error'));
+      setIsPurchasing(false);
+    }
+  };
+
+  const purchaseModal = showPurchaseModal && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="relative bg-[var(--surface)] rounded-2xl p-6 max-w-md w-full animate-fade-in">
+        <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+          {t('credits.purchaseModal.title')}
+        </h3>
+        <p className="text-sm text-[var(--text-muted)] mb-6">
+          {t('credits.purchaseModal.description')}
+        </p>
+
+        {!creditData ? (
+          <div className="text-center py-6">
+            <p className="text-[var(--text-secondary)] mb-4">
+              {t('chat.insufficientCredits.loading')}
+            </p>
+            <button
+              onClick={handleClosePurchaseModal}
+              className="btn-secondary px-6 py-2"
+            >
+              {t('common.close')}
+            </button>
+          </div>
+        ) : isFreeTier ? (
+          <div className="text-center py-4">
+            <p className="text-[var(--text-secondary)] mb-4">
+              {t('credits.purchaseModal.freeUserNotice')}
+            </p>
+            <button
+              onClick={() => {
+                handleClosePurchaseModal();
+                router.push(`/${currentLocale}/plans`);
+              }}
+              className="btn-primary px-6 py-2"
+            >
+              {t('credits.purchaseModal.upgradeFirst')}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--text-secondary)]">
+                  {t('credits.purchaseModal.pricePerUnit')}
+                </span>
+                <span className="font-medium text-[var(--text-primary)]">
+                  ${pricePerUnit.toFixed(2)}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-sm text-[var(--text-secondary)] mb-2">
+                  {t('credits.purchaseModal.quantity')}
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setPurchaseQuantity(Math.max(1, purchaseQuantity - 1))}
+                    disabled={purchaseQuantity <= 1}
+                    className="w-10 h-10 rounded-lg border border-[var(--border)] flex items-center justify-center text-lg font-medium disabled:opacity-50 hover:bg-[var(--background)]"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    value={purchaseQuantity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (val >= 1 && val <= 10) setPurchaseQuantity(val);
+                    }}
+                    min={1}
+                    max={10}
+                    className="w-20 text-center input"
+                  />
+                  <button
+                    onClick={() => setPurchaseQuantity(Math.min(10, purchaseQuantity + 1))}
+                    disabled={purchaseQuantity >= 10}
+                    className="w-10 h-10 rounded-lg border border-[var(--border)] flex items-center justify-center text-lg font-medium disabled:opacity-50 hover:bg-[var(--background)]"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--text-secondary)]">
+                  {t('credits.purchaseModal.totalCredits')}
+                </span>
+                <span className="font-medium text-[var(--text-primary)]">
+                  {totalCredits.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-[var(--text-secondary)]">
+                  {t('credits.purchaseModal.totalPrice')}
+                </span>
+                <span className="font-semibold text-[var(--text-primary)]">
+                  ${totalPrice}
+                </span>
+              </div>
+            </div>
+
+            {purchaseError && (
+              <p className="text-sm text-red-500 mb-4">{purchaseError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={handlePurchase}
+                disabled={isPurchasing}
+                className="btn-primary flex-1"
+              >
+                {isPurchasing
+                  ? t('credits.purchaseModal.processing')
+                  : t('credits.purchaseModal.purchaseButton')}
+              </button>
+              <button
+                onClick={handleClosePurchaseModal}
+                className="btn-secondary"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   const handleAlternativeResponse = async (assistantMessage: Message) => {
     if (!currentConversationId || isStreaming) return;
@@ -273,7 +500,12 @@ export function MessageList() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get alternative response');
+        const errorCode = errorData?.error;
+        const errorMessage = errorCode === 'insufficient_credits'
+          ? errorCode
+          : errorCode || errorData?.message || 'Failed to get alternative response';
+        setError(errorMessage);
+        return;
       }
 
       if (!response.body) {
@@ -334,7 +566,7 @@ export function MessageList() {
 
   if (messages.length === 0 && !isStreaming) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
         <div className="text-center max-w-md">
           <div className="text-6xl mb-4">💬</div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -344,6 +576,90 @@ export function MessageList() {
             {t('chat.emptyStateDescription')}
           </p>
         </div>
+        {error && (
+          <div className="w-full max-w-2xl">
+            <div className="flex justify-center">
+              {isInsufficientCredits ? (
+                <div className="w-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-4">
+                  <div className="text-2xl">💳</div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        {t('chat.insufficientCredits.title')}
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        {t('chat.insufficientCredits.description')}
+                      </p>
+                    </div>
+                    <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                      {activeModelInfo && (
+                        <p>
+                          {t('chat.insufficientCredits.cost', {
+                            model: activeModelInfo.name,
+                            credits: activeModelInfo.credits,
+                          })}
+                        </p>
+                      )}
+                      {creditData?.credits && (
+                        <p>
+                          {t('chat.insufficientCredits.balance', {
+                            available: creditData.credits.available.toLocaleString(),
+                          })}
+                        </p>
+                      )}
+                      {isCreditLoading && (
+                        <p>{t('chat.insufficientCredits.loading')}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {canPurchaseCredits || !creditData ? (
+                        <button
+                          onClick={handleOpenPurchaseModal}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          {t('chat.insufficientCredits.ctaPurchase')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/${currentLocale}/plans`)}
+                          className="btn-primary px-4 py-2 text-sm"
+                        >
+                          {t('chat.insufficientCredits.ctaUpgrade')}
+                        </button>
+                      )}
+                      <button
+                        onClick={clearError}
+                        className="btn-secondary px-4 py-2 text-sm"
+                      >
+                        {t('common.close')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3">
+                  <span className="text-red-500 text-lg">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                      {t('chat.errorOccurred')}
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {error}
+                    </p>
+                  </div>
+                  <button
+                    onClick={clearError}
+                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {purchaseModal}
       </div>
     );
   }
@@ -366,24 +682,83 @@ export function MessageList() {
 
       {error && (
         <div className="flex justify-center">
-          <div className="max-w-[80%] w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3">
-            <span className="text-red-500 text-lg">⚠️</span>
-            <div className="flex-1">
-              <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                {t('chat.errorOccurred')}
-              </p>
-              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                {error}
-              </p>
+          {isInsufficientCredits ? (
+            <div className="max-w-[80%] w-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-4">
+              <div className="text-2xl">💳</div>
+              <div className="flex-1 space-y-2">
+                <div>
+                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                    {t('chat.insufficientCredits.title')}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                    {t('chat.insufficientCredits.description')}
+                  </p>
+                </div>
+                <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                  {activeModelInfo && (
+                    <p>
+                      {t('chat.insufficientCredits.cost', {
+                        model: activeModelInfo.name,
+                        credits: activeModelInfo.credits,
+                      })}
+                    </p>
+                  )}
+                  {creditData?.credits && (
+                    <p>
+                      {t('chat.insufficientCredits.balance', {
+                        available: creditData.credits.available.toLocaleString(),
+                      })}
+                    </p>
+                  )}
+                  {isCreditLoading && (
+                    <p>{t('chat.insufficientCredits.loading')}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {canPurchaseCredits || !creditData ? (
+                    <button
+                      onClick={handleOpenPurchaseModal}
+                      className="btn-primary px-4 py-2 text-sm"
+                    >
+                      {t('chat.insufficientCredits.ctaPurchase')}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push(`/${currentLocale}/plans`)}
+                      className="btn-primary px-4 py-2 text-sm"
+                    >
+                      {t('chat.insufficientCredits.ctaUpgrade')}
+                    </button>
+                  )}
+                  <button
+                    onClick={clearError}
+                    className="btn-secondary px-4 py-2 text-sm"
+                  >
+                    {t('common.close')}
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={clearError}
-              className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+          ) : (
+            <div className="max-w-[80%] w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3">
+              <span className="text-red-500 text-lg">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+                  {t('chat.errorOccurred')}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                  {error}
+                </p>
+              </div>
+              <button
+                onClick={clearError}
+                className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -401,6 +776,8 @@ export function MessageList() {
       ))}
 
       <div ref={bottomRef} />
+
+      {purchaseModal}
     </div>
   );
 }

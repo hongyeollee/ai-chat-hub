@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { Message, AIModel } from '@/types';
+import type { Message } from '@/types';
 
 let openaiClient: OpenAI | null = null;
 
@@ -14,34 +14,31 @@ function getOpenAIClient(): OpenAI {
   return openaiClient;
 }
 
-// OpenAI 모델 ID 매핑
-const OPENAI_MODEL_MAP: Record<string, string> = {
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-4o': 'gpt-4o',
-};
+// Export client getter for model sync
+export { getOpenAIClient };
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
+/**
+ * Stream responses from OpenAI
+ * @param providerModelId - The actual OpenAI model ID (e.g., 'gpt-4o-mini', 'gpt-4o')
+ */
 export async function* streamOpenAI(
+  providerModelId: string,
   messages: Message[],
   summary?: string | null,
   customInstructions?: string | null,
   modelSwitchContext?: string | null,
   alternativeResponseContext?: string | null,
-  model: AIModel = 'gpt-4o-mini'
+  baseSystemPrompt?: string
 ): AsyncGenerator<string, void, unknown> {
   const openai = getOpenAIClient();
-  const openaiModel = OPENAI_MODEL_MAP[model] || 'gpt-4o-mini';
 
   // System prompt 구성
-  // 1. 기본 역할
-  // 2. 사용자 맞춤 지시사항 (custom_instructions)
-  // 3. 이전 대화 요약 (summary)
-  // 4. 대체 응답 컨텍스트 (alternativeResponseContext)
-  let systemContent = 'You are a helpful AI assistant powered by OpenAI.';
+  let systemContent = baseSystemPrompt || 'You are a helpful AI assistant powered by OpenAI.';
 
   if (customInstructions) {
     systemContent += `\n\nUser preferences:\n${customInstructions}`;
@@ -73,7 +70,7 @@ export async function* streamOpenAI(
   ];
 
   const stream = await openai.chat.completions.create({
-    model: openaiModel,
+    model: providerModelId,
     messages: chatMessages,
     stream: true,
   });

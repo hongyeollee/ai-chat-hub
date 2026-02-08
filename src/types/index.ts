@@ -13,9 +13,30 @@ export type SubscriptionTier = 'free' | 'light' | 'pro' | 'enterprise';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete';
 
 // ============================================================================
-// AI Models
+// AI Models - Now derived from MODEL_REGISTRY
 // ============================================================================
 
+import {
+  MODEL_REGISTRY,
+  MODEL_CREDITS_MAP,
+  MODEL_CATEGORIES_MAP,
+  MODEL_TO_CATEGORY_MAP,
+  MODEL_INFO_MAP,
+  getModelCredits,
+  getModelCategory,
+  getEnabledModelIds,
+  isValidModel,
+  type ModelConfig,
+  type ModelCategory,
+  type AIModelId,
+} from '@/config/models';
+
+// Re-export types from config
+export type { ModelCategory, AIModelId, ModelConfig };
+export { getModelCredits, getModelCategory, getEnabledModelIds, isValidModel };
+
+// AIModel type - derived from MODEL_REGISTRY
+// Using string literal union for backward compatibility
 export type AIModel =
   | 'gpt-4o-mini'
   | 'gemini-2.5-flash'
@@ -26,40 +47,14 @@ export type AIModel =
   | 'gpt-4o'
   | 'claude-sonnet-4.5';
 
-// 모델별 크레딧 비용
-export const MODEL_CREDITS: Record<AIModel, number> = {
-  'gpt-4o-mini': 1,
-  'gemini-2.5-flash': 1,
-  'deepseek-v3': 1,
-  'mistral-small-3': 1,
-  'mistral-medium-3': 2,
-  'claude-haiku-3.5': 5,
-  'gpt-4o': 15,
-  'claude-sonnet-4.5': 20,
-};
+// Backward compatible exports derived from MODEL_REGISTRY
+export const MODEL_CREDITS: Record<AIModel, number> = MODEL_CREDITS_MAP as Record<AIModel, number>;
 
-// 모델 카테고리 (티어별 접근 제어용)
-export type ModelCategory = 'low' | 'medium' | 'high';
+export const MODEL_CATEGORIES: Record<ModelCategory, AIModel[]> = MODEL_CATEGORIES_MAP as Record<ModelCategory, AIModel[]>;
 
-export const MODEL_CATEGORIES: Record<ModelCategory, AIModel[]> = {
-  low: ['gpt-4o-mini', 'gemini-2.5-flash', 'deepseek-v3', 'mistral-small-3'],
-  medium: ['mistral-medium-3', 'claude-haiku-3.5'],
-  high: ['gpt-4o', 'claude-sonnet-4.5'],
-};
+export const MODEL_TO_CATEGORY: Record<AIModel, ModelCategory> = MODEL_TO_CATEGORY_MAP as Record<AIModel, ModelCategory>;
 
-// 모델별 카테고리 역매핑
-export const MODEL_TO_CATEGORY: Record<AIModel, ModelCategory> = {
-  'gpt-4o-mini': 'low',
-  'gemini-2.5-flash': 'low',
-  'deepseek-v3': 'low',
-  'mistral-small-3': 'low',
-  'mistral-medium-3': 'medium',
-  'claude-haiku-3.5': 'medium',
-  'gpt-4o': 'high',
-  'claude-sonnet-4.5': 'high',
-};
-
-// 모델 표시 정보
+// 모델 표시 정보 (backward compatible interface)
 export interface AIModelInfo {
   id: AIModel;
   name: string;
@@ -70,80 +65,21 @@ export interface AIModelInfo {
   description: string;
 }
 
-export const AI_MODEL_INFO: Record<AIModel, AIModelInfo> = {
-  'gpt-4o-mini': {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini',
-    provider: 'OpenAI',
-    icon: '🤖',
-    credits: 1,
-    category: 'low',
-    description: '빠르고 효율적인 일상 대화용',
-  },
-  'gemini-2.5-flash': {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    provider: 'Google',
-    icon: '✨',
-    credits: 1,
-    category: 'low',
-    description: '빠른 응답의 구글 AI',
-  },
-  'deepseek-v3': {
-    id: 'deepseek-v3',
-    name: 'DeepSeek V3',
-    provider: 'DeepSeek',
-    icon: '🔍',
-    credits: 1,
-    category: 'low',
-    description: '코딩과 추론에 강한 AI',
-  },
-  'mistral-small-3': {
-    id: 'mistral-small-3',
-    name: 'Mistral Small 3',
-    provider: 'Mistral',
-    icon: '💨',
-    credits: 1,
-    category: 'low',
-    description: '가볍고 빠른 유럽 AI',
-  },
-  'mistral-medium-3': {
-    id: 'mistral-medium-3',
-    name: 'Mistral Medium 3',
-    provider: 'Mistral',
-    icon: '🌀',
-    credits: 2,
-    category: 'medium',
-    description: '균형 잡힌 성능의 AI',
-  },
-  'claude-haiku-3.5': {
-    id: 'claude-haiku-3.5',
-    name: 'Claude Haiku 3.5',
-    provider: 'Anthropic',
-    icon: '🎋',
-    credits: 5,
-    category: 'medium',
-    description: '빠르고 정확한 Anthropic AI',
-  },
-  'gpt-4o': {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'OpenAI',
-    icon: '🧠',
-    credits: 15,
-    category: 'high',
-    description: 'OpenAI의 최신 고성능 모델',
-  },
-  'claude-sonnet-4.5': {
-    id: 'claude-sonnet-4.5',
-    name: 'Claude Sonnet 4.5',
-    provider: 'Anthropic',
-    icon: '🎭',
-    credits: 20,
-    category: 'high',
-    description: 'Anthropic의 최고 성능 모델',
-  },
-};
+// Derive AI_MODEL_INFO from MODEL_REGISTRY
+export const AI_MODEL_INFO: Record<AIModel, AIModelInfo> = Object.fromEntries(
+  MODEL_REGISTRY.map((m) => [
+    m.id,
+    {
+      id: m.id as AIModel,
+      name: m.name,
+      provider: m.providerName,
+      icon: m.icon,
+      credits: m.credits,
+      category: m.category,
+      description: m.description,
+    },
+  ])
+) as Record<AIModel, AIModelInfo>;
 
 // 기존 AI_PROVIDERS 호환성 유지
 export interface AIProvider {
@@ -153,12 +89,14 @@ export interface AIProvider {
   icon: string;
 }
 
-export const AI_PROVIDERS: AIProvider[] = Object.values(AI_MODEL_INFO).map((info) => ({
-  id: info.id,
-  name: info.name,
-  model: info.id,
-  icon: info.icon,
-}));
+export const AI_PROVIDERS: AIProvider[] = MODEL_REGISTRY
+  .filter((m) => m.enabled)
+  .map((info) => ({
+    id: info.id,
+    name: info.name,
+    model: info.id as AIModel,
+    icon: info.icon,
+  }));
 
 // ============================================================================
 // Tier Configuration
@@ -487,6 +425,14 @@ export interface AdminAuditLog {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * 모델 ID를 i18n 번역 키로 변환
+ * next-intl은 "."을 네임스페이스 구분자로 사용하므로 "_"로 대체
+ */
+export function getModelTranslationKey(modelId: AIModel): string {
+  return modelId.replace(/\./g, '_');
+}
 
 /**
  * 티어에서 허용되는 모델인지 확인

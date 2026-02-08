@@ -1,4 +1,4 @@
--- AI Chat Hub - Admin System Migration
+-- NexusAI - Admin System Migration
 -- Version: 005
 -- Description: 관리자 역할, 사용자 오버라이드, 감사 로그 테이블 추가
 

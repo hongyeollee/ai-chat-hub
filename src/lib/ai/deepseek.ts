@@ -18,22 +18,31 @@ function getDeepSeekClient(): OpenAI {
   return deepseekClient;
 }
 
+// Export client getter for model sync
+export { getDeepSeekClient };
+
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
+/**
+ * Stream responses from DeepSeek
+ * @param providerModelId - The actual DeepSeek model ID (e.g., 'deepseek-chat')
+ */
 export async function* streamDeepSeek(
+  providerModelId: string,
   messages: Message[],
   summary?: string | null,
   customInstructions?: string | null,
   modelSwitchContext?: string | null,
-  alternativeResponseContext?: string | null
+  alternativeResponseContext?: string | null,
+  baseSystemPrompt?: string
 ): AsyncGenerator<string, void, unknown> {
   const client = getDeepSeekClient();
 
   // System prompt 구성
-  let systemContent = 'You are DeepSeek, a helpful and knowledgeable AI assistant. You excel at coding, reasoning, and technical tasks.';
+  let systemContent = baseSystemPrompt || 'You are DeepSeek, a helpful and knowledgeable AI assistant. You excel at coding, reasoning, and technical tasks.';
 
   if (customInstructions) {
     systemContent += `\n\nUser preferences:\n${customInstructions}`;
@@ -65,7 +74,7 @@ export async function* streamDeepSeek(
   ];
 
   const stream = await client.chat.completions.create({
-    model: 'deepseek-chat',  // DeepSeek V3
+    model: providerModelId,
     messages: chatMessages,
     stream: true,
     max_tokens: 4096,

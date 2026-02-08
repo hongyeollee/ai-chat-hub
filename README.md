@@ -1,6 +1,6 @@
-# AI Chat Hub (AI 채팅 허브)
+# NexusAI
 
-AI Chat Hub는 여러 AI 모델(GPT/Gemini)을 하나의 대화 흐름에서 사용할 수 있는 멀티 모델 채팅 플랫폼입니다.
+NexusAI는 여러 AI 모델(GPT/Gemini)을 하나의 대화 흐름에서 사용할 수 있는 멀티 모델 채팅 플랫폼입니다.
 Multi-model chat experience with seamless context and email-based auth.
 
 ---
@@ -65,7 +65,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=your_gmail_address
 SMTP_PASS=your_gmail_app_password
-SMTP_FROM="AI Chat Hub <your_gmail_address>"
+SMTP_FROM="NexusAI <your_gmail_address>"
 ```
 
 **Model Switch Context (optional)**

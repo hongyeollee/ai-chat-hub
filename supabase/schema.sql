@@ -1,4 +1,4 @@
--- AI Chat Hub Database Schema
+-- NexusAI Database Schema
 
 -- Email verifications table (for code-based auth)
 create table if not exists email_verifications (

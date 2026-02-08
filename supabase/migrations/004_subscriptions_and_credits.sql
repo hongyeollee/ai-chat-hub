@@ -1,4 +1,4 @@
--- AI Chat Hub - Subscriptions & Credits System Migration
+-- NexusAI - Subscriptions & Credits System Migration
 -- Version: 004
 -- Description: 구독 시스템, 크레딧 시스템, 결제 내역 테이블 추가
 

@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     const { error: emailError } = await resend.emails.send({
       from: 'onboarding@resend.dev',
       to: email,
-      subject: 'Reset your password - AI Chat Hub',
+      subject: 'Reset your password - NexusAI',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h1 style="color: #333;">Password Reset</h1>

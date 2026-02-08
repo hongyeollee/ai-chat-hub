@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "AI Chat Hub",
+    "appName": "NexusAI",
     "tagline": "Multiple AI wisdom in one conversation",
     "loading": "Loading...",
     "error": "An error occurred",
@@ -87,24 +87,34 @@
     "deleteConversation": "Delete conversation",
     "confirmDelete": "Are you sure you want to delete this conversation?",
     "errorOccurred": "An error occurred while getting AI response",
-    "alternativeResponse": "Also get response from {model}"
+    "alternativeResponse": "Also get response from {model}",
+    "insufficientCredits": {
+      "title": "Not enough credits",
+      "description": "Top up now to continue the conversation without interruption.",
+      "cost": "{model} requires {credits} credits per request.",
+      "balance": "Credits remaining: {available}",
+      "loading": "Loading credit balance...",
+      "ctaPurchase": "Purchase credits",
+      "ctaUpgrade": "Upgrade plan"
+    }
   },
   "model": {
     "select": "Select model",
     "gemini": "Gemini",
     "gpt": "GPT",
     "gpt-4o-mini": "GPT-4o Mini",
-    "gemini-2.5-flash": "Gemini 2.5 Flash",
+    "gemini-2_5-flash": "Gemini 2.5 Flash",
     "deepseek-v3": "DeepSeek V3",
     "mistral-small-3": "Mistral Small 3",
     "mistral-medium-3": "Mistral Medium 3",
-    "claude-haiku-3.5": "Claude Haiku 3.5",
+    "claude-haiku-3_5": "Claude Haiku 3.5",
     "gpt-4o": "GPT-4o",
-    "claude-sonnet-4.5": "Claude Sonnet 4.5"
+    "claude-sonnet-4_5": "Claude Sonnet 4.5"
   },
   "usage": {
     "remaining": "Remaining today",
     "requests": "{count} requests",
+    "credits": "Credits",
     "limitReached": "Daily limit reached",
     "resetTomorrow": "Resets at midnight"
   },
@@ -222,7 +232,7 @@
       "customIntegration": "Custom integration support"
     },
     "tierDescriptions": {
-      "free": "Try AI Chat Hub for free",
+      "free": "Try NexusAI for free",
       "light": "Get started with AI",
       "pro": "Unlock the full power of AI",
       "enterprise": "Custom solutions for teams"
@@ -241,13 +251,24 @@
       "teamSize": "Expected Team Size",
       "teamSizePlaceholder": "e.g., 10, 50, 100+",
       "purpose": "Primary Use Case",
-      "purposePlaceholder": "How do you plan to use AI Chat Hub?",
+      "purposePlaceholder": "How do you plan to use NexusAI?",
       "additionalInfo": "Additional Notes (Optional)",
       "additionalInfoPlaceholder": "Any additional questions or requirements",
       "submit": "Submit Inquiry",
       "submitting": "Submitting...",
       "success": "Your inquiry has been submitted. We'll contact you shortly.",
       "error": "Failed to submit inquiry. Please try again."
+    },
+    "upgradeModal": {
+      "title": "Payment System Coming Soon",
+      "description": "We're currently setting up our payment system. Please hang tight!",
+      "selectedPlan": "Selected Plan",
+      "interestPrompt": "If you're interested in a paid plan, let us know! We'll notify you first when our payment system is ready.",
+      "interested": "Yes, I'm interested!",
+      "submitting": "Submitting...",
+      "successTitle": "Thank you!",
+      "successDescription": "Your interest has been recorded. We'll email you when our payment system is ready.",
+      "error": "Failed to submit. Please try again."
     }
   }
 }

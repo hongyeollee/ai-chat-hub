@@ -2,38 +2,58 @@ import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai'
 import type { Message } from '@/types';
 
 let genAIClient: GoogleGenerativeAI | null = null;
-let geminiModel: GenerativeModel | null = null;
+const modelCache: Map<string, GenerativeModel> = new Map();
 
-function getGeminiModel(): GenerativeModel {
-  if (!geminiModel) {
+function getGoogleClient(): GoogleGenerativeAI {
+  if (!genAIClient) {
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error('GOOGLE_GEMINI_API_KEY is not configured');
     }
     genAIClient = new GoogleGenerativeAI(apiKey);
-    geminiModel = genAIClient.getGenerativeModel({ model: 'gemini-2.5-flash' });
   }
-  return geminiModel;
+  return genAIClient;
 }
+
+function getGeminiModel(providerModelId: string): GenerativeModel {
+  if (!modelCache.has(providerModelId)) {
+    const client = getGoogleClient();
+    modelCache.set(providerModelId, client.getGenerativeModel({ model: providerModelId }));
+  }
+  return modelCache.get(providerModelId)!;
+}
+
+// Export client getter for model sync
+export { getGoogleClient };
 
 interface GeminiContent {
   role: 'user' | 'model';
   parts: { text: string }[];
 }
 
+/**
+ * Stream responses from Google Gemini
+ * @param providerModelId - The actual Gemini model ID (e.g., 'gemini-2.5-flash')
+ */
 export async function* streamGemini(
+  providerModelId: string,
   messages: Message[],
   summary?: string | null,
   customInstructions?: string | null,
   modelSwitchContext?: string | null,
-  alternativeResponseContext?: string | null
+  alternativeResponseContext?: string | null,
+  baseSystemPrompt?: string
 ): AsyncGenerator<string, void, unknown> {
-  const model = getGeminiModel();
+  const model = getGeminiModel(providerModelId);
 
   const history: GeminiContent[] = [];
 
   // Add custom instructions and summary as context if available
-  let contextParts: string[] = [];
+  const contextParts: string[] = [];
+
+  if (baseSystemPrompt) {
+    contextParts.push(`[System: ${baseSystemPrompt}]`);
+  }
 
   if (customInstructions) {
     contextParts.push(`[User preferences: ${customInstructions}]`);
