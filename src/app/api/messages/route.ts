@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { streamOpenAI, getOpenAIErrorMessage, isQuotaError } from '@/lib/ai/openai';
-import { streamGemini } from '@/lib/ai/gemini';
-import { streamDeepSeek, getDeepSeekErrorMessage, isDeepSeekQuotaError } from '@/lib/ai/deepseek';
-import { streamMistral, getMistralErrorMessage, isMistralQuotaError } from '@/lib/ai/mistral';
-import { streamClaude, getClaudeErrorMessage, isClaudeQuotaError } from '@/lib/ai/claude';
 import {
   getMessagesForContextByTier,
   shouldUpdateSummary,
@@ -13,8 +8,6 @@ import {
 } from '@/lib/ai/context';
 import {
   getKoreanDate,
-  getRemainingUsage,
-  getModelCreditCost,
   getEffectiveLimits,
   checkUsageWithOverride,
   validateInputLengthWithOverride,
@@ -23,18 +16,14 @@ import {
 import { getUserCredits, deductCredits } from '@/lib/utils/credits';
 import type { Message, AIModel, Profile, SubscriptionTier } from '@/types';
 import { TIER_LIMITS, AI_MODEL_INFO } from '@/types';
+import {
+  getStreamGenerator,
+  getProviderErrorMessage,
+} from '@/lib/ai/provider-factory';
+import { isValidModel, getEnabledModelIds } from '@/config/models';
 
-// 지원되는 모델 목록
-const SUPPORTED_MODELS: AIModel[] = [
-  'gpt-4o-mini',
-  'gemini-2.5-flash',
-  'deepseek-v3',
-  'mistral-small-3',
-  'mistral-medium-3',
-  'claude-haiku-3.5',
-  'gpt-4o',
-  'claude-sonnet-4.5',
-];
+// 지원되는 모델 목록 - MODEL_REGISTRY에서 동적으로 가져옴
+const SUPPORTED_MODELS = getEnabledModelIds();
 
 // POST /api/messages - Send a message and get AI response (streaming)
 export async function POST(request: NextRequest) {
@@ -58,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!model || !SUPPORTED_MODELS.includes(model)) {
+    if (!model || !isValidModel(model)) {
       return NextResponse.json(
         { success: false, error: 'Invalid model' },
         { status: 400 }
@@ -240,9 +229,22 @@ export async function POST(request: NextRequest) {
 
     // 메모리 활성화 여부에 따라 컨텍스트 메시지 처리
     // memoryEnabled가 false면 이전 대화 컨텍스트 없이 현재 메시지만 사용
-    const contextMessages = memoryEnabled
+    let contextMessages = memoryEnabled
       ? getMessagesForContextByTier((allMessages as Message[]) || [], tier)
       : [];
+
+    if (contextMessages.length === 0) {
+      contextMessages = [
+        {
+          id: userMessageId || 'temp-user-message',
+          conversation_id: actualConversationId || 'temp-conversation',
+          role: 'user',
+          content,
+          model,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
 
     // Pro/Enterprise 티어만 요약 사용 (메모리 비활성화 시 요약도 미사용)
     const useSummary = memoryEnabled && (tier === 'pro' || tier === 'enterprise');
@@ -292,16 +294,14 @@ Now it's YOUR turn to answer the SAME question. Provide your own unique perspect
             encoder.encode(`event: meta\ndata: ${JSON.stringify({ conversationId: actualConversationId, userMessageId })}\n\n`)
           );
 
-          // Stream AI response (custom_instructions 포함)
-          // 모델별 스트리밍 함수 선택
-          const streamGenerator = getStreamGeneratorForModel(
-            model,
-            contextMessages,
+          // Stream AI response using provider factory
+          const streamGenerator = getStreamGenerator(model, {
+            messages: contextMessages,
             summary,
             customInstructions,
             modelSwitchContext,
-            alternativeResponseContext
-          );
+            alternativeResponseContext,
+          });
 
           for await (const token of streamGenerator) {
             fullResponse += token;
@@ -393,7 +393,7 @@ Now it's YOUR turn to answer the SAME question. Provide your own unique perspect
             errorMessage: rawErrorMessage,
           });
 
-          // Use user-friendly error message based on model provider
+          // Use provider factory for error message
           const userFriendlyMessage = getProviderErrorMessage(model, error);
 
           controller.enqueue(
@@ -418,119 +418,4 @@ Now it's YOUR turn to answer the SAME question. Provide your own unique perspect
       { status: 500 }
     );
   }
-}
-
-// Helper: 모델별 스트리밍 함수 선택
-function getStreamGeneratorForModel(
-  model: AIModel,
-  messages: Message[],
-  summary: string | null,
-  customInstructions: string | null,
-  modelSwitchContext: string | null,
-  alternativeResponseContext: string | null
-): AsyncGenerator<string, void, unknown> {
-  switch (model) {
-    // OpenAI models
-    case 'gpt-4o-mini':
-    case 'gpt-4o':
-      return streamOpenAI(
-        messages,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext,
-        model
-      );
-
-    // Google Gemini
-    case 'gemini-2.5-flash':
-      return streamGemini(
-        messages,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext
-      );
-
-    // DeepSeek
-    case 'deepseek-v3':
-      return streamDeepSeek(
-        messages,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext
-      );
-
-    // Mistral models
-    case 'mistral-small-3':
-    case 'mistral-medium-3':
-      return streamMistral(
-        messages,
-        model,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext
-      );
-
-    // Claude/Anthropic models
-    case 'claude-haiku-3.5':
-    case 'claude-sonnet-4.5':
-      return streamClaude(
-        messages,
-        model,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext
-      );
-
-    default:
-      // Fallback to GPT-4o-mini
-      return streamOpenAI(
-        messages,
-        summary,
-        customInstructions,
-        modelSwitchContext,
-        alternativeResponseContext,
-        'gpt-4o-mini'
-      );
-  }
-}
-
-// Helper: 프로바이더별 에러 메시지 처리
-function getProviderErrorMessage(model: AIModel, error: unknown): string {
-  const rawErrorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-  switch (model) {
-    case 'gpt-4o-mini':
-    case 'gpt-4o':
-      if (isQuotaError(error)) {
-        return getOpenAIErrorMessage(error);
-      }
-      break;
-
-    case 'deepseek-v3':
-      if (isDeepSeekQuotaError(error)) {
-        return getDeepSeekErrorMessage(error);
-      }
-      break;
-
-    case 'mistral-small-3':
-    case 'mistral-medium-3':
-      if (isMistralQuotaError(error)) {
-        return getMistralErrorMessage(error);
-      }
-      break;
-
-    case 'claude-haiku-3.5':
-    case 'claude-sonnet-4.5':
-      if (isClaudeQuotaError(error)) {
-        return getClaudeErrorMessage(error);
-      }
-      break;
-  }
-
-  return rawErrorMessage;
 }
