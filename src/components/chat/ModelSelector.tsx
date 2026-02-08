@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { useChatStore } from '@/stores/chatStore';
-import { AI_PROVIDERS, getAllowedModelsForTier, type SubscriptionTier, type AIModel } from '@/types';
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useChatStore } from "@/stores/chatStore";
+import {
+  AI_PROVIDERS,
+  getAllowedModelsForTier,
+  getModelTranslationKey,
+  type SubscriptionTier,
+  type AIModel,
+} from "@/types";
 
 export function ModelSelector() {
   const t = useTranslations();
@@ -14,19 +20,20 @@ export function ModelSelector() {
   useEffect(() => {
     const fetchAllowedModels = async () => {
       try {
-        const response = await fetch('/api/profile');
+        const response = await fetch("/api/profile");
         const result = await response.json();
 
         if (result.success && result.data) {
-          const tier = (result.data.subscription_tier || 'free') as SubscriptionTier;
+          const tier = (result.data.subscription_tier ||
+            "free") as SubscriptionTier;
           setAllowedModels(getAllowedModelsForTier(tier));
         } else {
           // 기본값: Free 티어의 허용 모델
-          setAllowedModels(getAllowedModelsForTier('free'));
+          setAllowedModels(getAllowedModelsForTier("free"));
         }
       } catch (error) {
-        console.error('Failed to fetch profile for allowed models:', error);
-        setAllowedModels(getAllowedModelsForTier('free'));
+        console.error("Failed to fetch profile for allowed models:", error);
+        setAllowedModels(getAllowedModelsForTier("free"));
       } finally {
         setIsLoading(false);
       }
@@ -37,7 +44,7 @@ export function ModelSelector() {
 
   // 허용된 모델만 필터링
   const filteredProviders = AI_PROVIDERS.filter((provider) =>
-    allowedModels.includes(provider.model)
+    allowedModels.includes(provider.model),
   );
 
   if (isLoading) {
@@ -60,11 +67,12 @@ export function ModelSelector() {
             key={provider.id}
             className={`
               flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 rounded-md transition-all
-              ${isSelected
-                ? 'bg-white dark:bg-gray-700 shadow-sm'
-                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+              ${
+                isSelected
+                  ? "bg-white dark:bg-gray-700 shadow-sm"
+                  : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
               }
-              ${isStreaming ? 'opacity-50 cursor-not-allowed' : ''}
+              ${isStreaming ? "opacity-50 cursor-not-allowed" : ""}
             `}
           >
             <input
@@ -81,13 +89,15 @@ export function ModelSelector() {
             <span
               className={`
                 font-medium text-sm
-                ${isSelected
-                  ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-600 dark:text-gray-400'
+                ${
+                  isSelected
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-600 dark:text-gray-400"
                 }
               `}
             >
-              {provider.icon} {t(`model.${provider.id}`)}
+              {provider.icon}{" "}
+              {t(`model.${getModelTranslationKey(provider.model)}`)}
             </span>
           </label>
         );
