@@ -1,5 +1,5 @@
 import { Mistral } from '@mistralai/mistralai';
-import type { Message, AIModel } from '@/types';
+import type { Message } from '@/types';
 
 let mistralClient: Mistral | null = null;
 
@@ -14,30 +14,31 @@ function getMistralClient(): Mistral {
   return mistralClient;
 }
 
-// Mistral 모델 ID 매핑
-const MISTRAL_MODEL_MAP: Record<string, string> = {
-  'mistral-small-3': 'mistral-small-latest',
-  'mistral-medium-3': 'mistral-medium-latest',
-};
+// Export client getter for model sync
+export { getMistralClient };
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
+/**
+ * Stream responses from Mistral AI
+ * @param providerModelId - The actual Mistral model ID (e.g., 'mistral-small-latest')
+ */
 export async function* streamMistral(
+  providerModelId: string,
   messages: Message[],
-  model: AIModel,
   summary?: string | null,
   customInstructions?: string | null,
   modelSwitchContext?: string | null,
-  alternativeResponseContext?: string | null
+  alternativeResponseContext?: string | null,
+  baseSystemPrompt?: string
 ): AsyncGenerator<string, void, unknown> {
   const client = getMistralClient();
-  const mistralModel = MISTRAL_MODEL_MAP[model] || 'mistral-small-latest';
 
   // System prompt 구성
-  let systemContent = 'You are Mistral AI, a helpful assistant created by Mistral AI. You are known for being fast, efficient, and helpful.';
+  let systemContent = baseSystemPrompt || 'You are Mistral AI, a helpful assistant created by Mistral AI. You are known for being fast, efficient, and helpful.';
 
   if (customInstructions) {
     systemContent += `\n\nUser preferences:\n${customInstructions}`;
@@ -64,7 +65,7 @@ export async function* streamMistral(
   ];
 
   const stream = await client.chat.stream({
-    model: mistralModel,
+    model: providerModelId,
     messages: chatMessages,
   });
 

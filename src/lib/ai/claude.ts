@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { Message, AIModel } from '@/types';
+import type { Message } from '@/types';
 
 let anthropicClient: Anthropic | null = null;
 
@@ -14,30 +14,31 @@ function getAnthropicClient(): Anthropic {
   return anthropicClient;
 }
 
-// Claude 모델 ID 매핑
-const CLAUDE_MODEL_MAP: Record<string, string> = {
-  'claude-haiku-3.5': 'claude-3-5-haiku-latest',
-  'claude-sonnet-4.5': 'claude-sonnet-4-5-20250514',  // Updated to latest version
-};
+// Export client getter for model sync
+export { getAnthropicClient };
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
+/**
+ * Stream responses from Claude/Anthropic
+ * @param providerModelId - The actual Anthropic model ID (e.g., 'claude-3-5-haiku-latest')
+ */
 export async function* streamClaude(
+  providerModelId: string,
   messages: Message[],
-  model: AIModel,
   summary?: string | null,
   customInstructions?: string | null,
   modelSwitchContext?: string | null,
-  alternativeResponseContext?: string | null
+  alternativeResponseContext?: string | null,
+  baseSystemPrompt?: string
 ): AsyncGenerator<string, void, unknown> {
   const client = getAnthropicClient();
-  const claudeModel = CLAUDE_MODEL_MAP[model] || 'claude-3-5-haiku-latest';
 
   // System prompt 구성
-  let systemContent = 'You are Claude, a helpful AI assistant created by Anthropic. You are thoughtful, nuanced, and aim to be genuinely helpful.';
+  let systemContent = baseSystemPrompt || 'You are Claude, a helpful AI assistant created by Anthropic. You are thoughtful, nuanced, and aim to be genuinely helpful.';
 
   if (customInstructions) {
     systemContent += `\n\nUser preferences:\n${customInstructions}`;
@@ -94,7 +95,7 @@ export async function* streamClaude(
   }
 
   const stream = await client.messages.stream({
-    model: claudeModel,
+    model: providerModelId,
     max_tokens: 4096,
     system: systemContent,
     messages: cleanedMessages,
