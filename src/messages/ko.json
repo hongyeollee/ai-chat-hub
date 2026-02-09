@@ -198,6 +198,91 @@
     "customInstructionsPlaceholder": "AI가 항상 따라야 할 지시사항을 입력하세요\n예: 항상 한국어로 답변해주세요, 코드 예시를 포함해주세요 등",
     "customInstructionsDescription": "모든 대화에서 AI가 참고하는 개인 설정"
   },
+  "landing": {
+    "hero": {
+      "title": "여러 AI의 지혜를,",
+      "titleHighlight": "하나의 대화로",
+      "subtitle": "GPT, Claude, Gemini 등 다양한 AI 모델을 하나의 인터페이스에서 자유롭게 전환하며 사용하세요.",
+      "cta": "무료로 시작하기",
+      "secondaryCta": "더 알아보기"
+    },
+    "features": {
+      "title": "왜 NexusAI인가요?",
+      "subtitle": "하나의 플랫폼에서 모든 AI를 경험하세요",
+      "multiModel": {
+        "title": "멀티 AI 모델",
+        "description": "GPT-4o, Claude, Gemini 등 최신 AI 모델을 한 곳에서 사용하세요. 대화 중에도 자유롭게 모델을 전환할 수 있습니다."
+      },
+      "context": {
+        "title": "대화 컨텍스트 유지",
+        "description": "모델을 변경해도 대화 흐름이 유지됩니다. 여러 AI의 관점을 하나의 대화에서 비교해보세요."
+      },
+      "credits": {
+        "title": "유연한 크레딧 시스템",
+        "description": "월간 구독 없이 사용한 만큼만 지불하세요. 크레딧은 이월되어 낭비 없이 사용할 수 있습니다."
+      }
+    },
+    "models": {
+      "title": "지원하는 AI 모델",
+      "subtitle": "세계 최고의 AI 모델들을 한 곳에서",
+      "gpt": {
+        "name": "GPT-4o",
+        "description": "OpenAI의 최신 멀티모달 모델"
+      },
+      "claude": {
+        "name": "Claude",
+        "description": "Anthropic의 안전하고 유용한 AI"
+      },
+      "gemini": {
+        "name": "Gemini",
+        "description": "Google의 차세대 AI 모델"
+      },
+      "deepseek": {
+        "name": "DeepSeek",
+        "description": "효율적인 오픈소스 AI"
+      },
+      "mistral": {
+        "name": "Mistral",
+        "description": "유럽의 강력한 AI 모델"
+      },
+      "andMore": "그리고 더 많은 모델들..."
+    },
+    "pricing": {
+      "title": "합리적인 가격",
+      "subtitle": "당신에게 맞는 플랜을 선택하세요",
+      "free": {
+        "name": "Free",
+        "price": "무료",
+        "description": "AI를 체험해보세요",
+        "features": ["매일 10회 요청", "기본 AI 모델", "2,000자 입력"]
+      },
+      "light": {
+        "name": "Light",
+        "price": "$4.99",
+        "description": "가볍게 시작하기",
+        "features": ["월 5,000 크레딧", "중급 AI 모델", "4,000자 입력"]
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "$19.99",
+        "description": "전문가를 위한 선택",
+        "features": ["월 25,000 크레딧", "모든 AI 모델", "8,000자 입력", "크레딧 이월"]
+      },
+      "viewAll": "모든 플랜 비교하기"
+    },
+    "cta": {
+      "title": "지금 바로 시작하세요",
+      "subtitle": "무료로 시작하고, 필요할 때 업그레이드하세요.",
+      "button": "무료로 시작하기",
+      "login": "이미 계정이 있으신가요?",
+      "loginLink": "로그인"
+    },
+    "footer": {
+      "terms": "이용약관",
+      "privacy": "개인정보처리방침",
+      "contact": "문의하기"
+    }
+  },
   "plans": {
     "title": "플랜 선택",
     "subtitle": "당신에게 맞는 플랜을 선택하세요",

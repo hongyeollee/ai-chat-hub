@@ -58,6 +58,16 @@ export async function updateSession(request: NextRequest) {
     pathWithoutLocale.startsWith(path)
   );
 
+  // Landing page - redirect logged-in users to chat
+  const isLandingPage = pathWithoutLocale === '/';
+
+  if (isLandingPage && user) {
+    const localePrefix = isValidLocale ? `/${locale}` : '/ko';
+    const url = request.nextUrl.clone();
+    url.pathname = `${localePrefix}/chat`;
+    return NextResponse.redirect(url);
+  }
+
   if (isProtectedRoute && !user) {
     const localePrefix = isValidLocale ? `/${locale}` : '/ko';
     const url = request.nextUrl.clone();

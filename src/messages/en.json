@@ -198,6 +198,91 @@
     "customInstructionsPlaceholder": "Enter instructions for AI to always follow\ne.g., Always respond in English, include code examples, etc.",
     "customInstructionsDescription": "Personal settings that AI references in all conversations"
   },
+  "landing": {
+    "hero": {
+      "title": "Multiple AI wisdom,",
+      "titleHighlight": "one conversation",
+      "subtitle": "Switch freely between GPT, Claude, Gemini and more AI models in one unified interface.",
+      "cta": "Get Started Free",
+      "secondaryCta": "Learn More"
+    },
+    "features": {
+      "title": "Why NexusAI?",
+      "subtitle": "Experience all AI models in one platform",
+      "multiModel": {
+        "title": "Multi AI Models",
+        "description": "Access GPT-4o, Claude, Gemini and more in one place. Switch models freely during your conversation."
+      },
+      "context": {
+        "title": "Context Preserved",
+        "description": "Keep your conversation flow when switching models. Compare perspectives from different AIs in one chat."
+      },
+      "credits": {
+        "title": "Flexible Credit System",
+        "description": "Pay only for what you use, no monthly subscription required. Credits roll over so nothing goes to waste."
+      }
+    },
+    "models": {
+      "title": "Supported AI Models",
+      "subtitle": "World's best AI models in one place",
+      "gpt": {
+        "name": "GPT-4o",
+        "description": "OpenAI's latest multimodal model"
+      },
+      "claude": {
+        "name": "Claude",
+        "description": "Anthropic's safe and helpful AI"
+      },
+      "gemini": {
+        "name": "Gemini",
+        "description": "Google's next-gen AI model"
+      },
+      "deepseek": {
+        "name": "DeepSeek",
+        "description": "Efficient open-source AI"
+      },
+      "mistral": {
+        "name": "Mistral",
+        "description": "Europe's powerful AI model"
+      },
+      "andMore": "And more models..."
+    },
+    "pricing": {
+      "title": "Simple Pricing",
+      "subtitle": "Choose the plan that works for you",
+      "free": {
+        "name": "Free",
+        "price": "Free",
+        "description": "Try AI for free",
+        "features": ["10 requests/day", "Basic AI models", "2,000 chars input"]
+      },
+      "light": {
+        "name": "Light",
+        "price": "$4.99",
+        "description": "Get started lightly",
+        "features": ["5,000 credits/month", "Medium AI models", "4,000 chars input"]
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "$19.99",
+        "description": "For power users",
+        "features": ["25,000 credits/month", "All AI models", "8,000 chars input", "Credit rollover"]
+      },
+      "viewAll": "Compare all plans"
+    },
+    "cta": {
+      "title": "Start Now",
+      "subtitle": "Start free, upgrade when you need.",
+      "button": "Get Started Free",
+      "login": "Already have an account?",
+      "loginLink": "Log in"
+    },
+    "footer": {
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "contact": "Contact Us"
+    }
+  },
   "plans": {
     "title": "Choose Your Plan",
     "subtitle": "Select the plan that works best for you",
