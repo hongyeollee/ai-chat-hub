@@ -69,7 +69,7 @@ export default function LandingPage() {
       <footer className="py-8 px-4 border-t border-[var(--border)]">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-[var(--text-muted)]">
-            © 2025 {t('common.appName')}. All rights reserved.
+            © 2026 {t('common.appName')}. All rights reserved.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
@@ -78,7 +78,7 @@ export default function LandingPage() {
             <a href="#" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {t('landing.footer.privacy')}
             </a>
-            <a href="#" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
+            <a href="mailto:zeler1005@gmail.com" className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
               {t('landing.footer.contact')}
             </a>
           </div>
