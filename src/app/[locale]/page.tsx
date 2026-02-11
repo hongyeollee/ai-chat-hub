@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { Hero, Features, ModelShowcase, Pricing, CTA } from '@/components/landing';
 
@@ -26,8 +27,9 @@ export default function LandingPage() {
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 glass">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href={`/${locale}`} className="text-xl font-bold text-gradient">
-            {t('common.appName')}
+          <Link href={`/${locale}`} className="flex items-center gap-2">
+            <Image src="/logo.png" alt="Nexuan" width={32} height={32} />
+            <span className="text-xl font-bold text-gradient">{t('common.appName')}</span>
           </Link>
 
           <div className="flex items-center gap-4">

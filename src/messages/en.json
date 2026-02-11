@@ -1,7 +1,7 @@
 {
   "common": {
-    "appName": "NexusAI",
-    "tagline": "Multiple AI wisdom in one conversation",
+    "appName": "Nexuan",
+    "tagline": "Where Humans Become the Nexus of Intelligence",
     "loading": "Loading...",
     "error": "An error occurred",
     "retry": "Retry",
@@ -200,14 +200,15 @@
   },
   "landing": {
     "hero": {
-      "title": "Multiple AI wisdom,",
-      "titleHighlight": "one conversation",
-      "subtitle": "Switch freely between GPT, Claude, Gemini and more AI models in one unified interface.",
+      "title": "Where Humans Become",
+      "titleHighlight": "the Nexus of Intelligence",
+      "subtitle": "Nexuan is a hub where humans (An) become the center of connection (Nexus). We expand intelligence by connecting humans and AI.",
+      "description": "Switch freely between GPT, Claude, Gemini and more AI models in one unified interface.",
       "cta": "Get Started Free",
       "secondaryCta": "Learn More"
     },
     "features": {
-      "title": "Why NexusAI?",
+      "title": "Why Nexuan?",
       "subtitle": "Experience all AI models in one platform",
       "multiModel": {
         "title": "Multi AI Models",
@@ -317,7 +318,7 @@
       "customIntegration": "Custom integration support"
     },
     "tierDescriptions": {
-      "free": "Try NexusAI for free",
+      "free": "Try Nexuan for free",
       "light": "Get started with AI",
       "pro": "Unlock the full power of AI",
       "enterprise": "Custom solutions for teams"
@@ -336,7 +337,7 @@
       "teamSize": "Expected Team Size",
       "teamSizePlaceholder": "e.g., 10, 50, 100+",
       "purpose": "Primary Use Case",
-      "purposePlaceholder": "How do you plan to use NexusAI?",
+      "purposePlaceholder": "How do you plan to use Nexuan?",
       "additionalInfo": "Additional Notes (Optional)",
       "additionalInfoPlaceholder": "Any additional questions or requirements",
       "submit": "Submit Inquiry",
