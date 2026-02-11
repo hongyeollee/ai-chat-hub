@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -14,7 +15,7 @@ export function Hero() {
   };
 
   return (
-    <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 gradient-bg opacity-10" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[var(--background)]" />
@@ -23,17 +24,34 @@ export function Hero() {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '0.5s' }} />
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
+          <Image
+            src="/logo.png"
+            alt="Nexuan Logo"
+            width={120}
+            height={120}
+            className="drop-shadow-lg"
+            priority
+          />
+        </div>
+
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6">
           <span className="text-[var(--text-primary)]">{t('title')}</span>
           <br />
           <span className="text-gradient">{t('titleHighlight')}</span>
         </h1>
 
-        <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10">
+        <p className="text-lg sm:text-xl text-[var(--text-primary)] font-medium max-w-2xl mx-auto mb-4">
           {t('subtitle')}
+        </p>
+
+        <p className="text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-10">
+          {t('description')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
