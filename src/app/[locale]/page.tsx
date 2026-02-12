@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { Hero, Features, ModelShowcase, Pricing, CTA } from '@/components/landing';
+import { Hero, Features, ModelShowcase, Pricing, Brand, CTA } from '@/components/landing';
 
 export default function LandingPage() {
   const t = useTranslations();
@@ -64,6 +64,7 @@ export default function LandingPage() {
         <Features />
         <ModelShowcase />
         <Pricing />
+        <Brand />
         <CTA />
       </main>
 

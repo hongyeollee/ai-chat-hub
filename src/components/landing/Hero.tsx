@@ -15,7 +15,7 @@ export function Hero() {
   };
 
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 gradient-bg opacity-10" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[var(--background)]" />
@@ -46,12 +46,8 @@ export function Hero() {
           <span className="text-gradient">{t('titleHighlight')}</span>
         </h1>
 
-        <p className="text-lg sm:text-xl text-[var(--text-primary)] font-medium max-w-2xl mx-auto mb-4">
+        <p className="text-lg sm:text-xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-10">
           {t('subtitle')}
-        </p>
-
-        <p className="text-base sm:text-lg text-[var(--text-secondary)] max-w-2xl mx-auto mb-10">
-          {t('description')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
