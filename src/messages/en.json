@@ -200,12 +200,16 @@
   },
   "landing": {
     "hero": {
-      "title": "Where Humans Become",
-      "titleHighlight": "the Nexus of Intelligence",
-      "subtitle": "Nexuan is a hub where humans (An) become the center of connection (Nexus). We expand intelligence by connecting humans and AI.",
-      "description": "Switch freely between GPT, Claude, Gemini and more AI models in one unified interface.",
+      "title": "Multiple AI wisdom,",
+      "titleHighlight": "one conversation",
+      "subtitle": "Switch freely between GPT, Claude, Gemini and more AI models in one unified interface.",
       "cta": "Get Started Free",
       "secondaryCta": "Learn More"
+    },
+    "brand": {
+      "title": "Where Humans Become",
+      "titleHighlight": "the Nexus of Intelligence",
+      "description": "Nexuan is a hub where humans (An) become the center of connection (Nexus). We expand intelligence by connecting humans and AI."
     },
     "features": {
       "title": "Why Nexuan?",
