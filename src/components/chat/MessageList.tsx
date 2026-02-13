@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import { useChatStore } from '@/stores/chatStore';
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { StreamingMessage } from './StreamingMessage';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { AI_MODEL_INFO, type Message, type AIModel } from '@/types';
@@ -31,107 +31,143 @@ function getAlternativeModel(currentModel: AIModel): AIModel {
   return currentModel === 'gpt-4o-mini' ? 'gemini-2.5-flash' : 'gpt-4o-mini';
 }
 
-interface MessageBubbleProps {
+// 메시지 그룹 타입 - 하나의 user 메시지와 여러 assistant 응답을 그룹화
+interface MessageGroup {
+  userMessage: Message;
+  assistantResponses: Message[];
+}
+
+interface AssistantBubbleProps {
   message: Message;
   onAlternativeResponse?: (message: Message) => void;
   isLoadingAlternative?: boolean;
-  messages: Message[];
+  hasMultipleResponses: boolean;
+  isSelected?: boolean;
+  onSelect?: (message: Message) => void;
+  showAlternativeButton: boolean;
 }
 
-function MessageBubble({ message, onAlternativeResponse, isLoadingAlternative, messages }: MessageBubbleProps) {
+function AssistantBubble({
+  message,
+  onAlternativeResponse,
+  isLoadingAlternative,
+  hasMultipleResponses,
+  isSelected,
+  onSelect,
+  showAlternativeButton,
+}: AssistantBubbleProps) {
   const t = useTranslations();
-  const isUser = message.role === 'user';
-  const alternativeModel = !isUser ? getAlternativeModel(message.model) : null;
-
-  // 같은 user message에 대해 이미 다른 모델의 응답이 있는지 확인
-  const hasAlternativeResponse = !isUser && message.parent_message_id
-    ? messages.some(
-        (m) =>
-          m.role === 'assistant' &&
-          m.parent_message_id === message.parent_message_id &&
-          m.model !== message.model
-      )
-    : false;
-
-  // 이 assistant message의 직전 user message 찾기
-  const findUserMessageForAssistant = (): Message | undefined => {
-    if (isUser) return undefined;
-
-    // parent_message_id가 있으면 그것을 사용
-    if (message.parent_message_id) {
-      return messages.find((m) => m.id === message.parent_message_id);
-    }
-
-    // 없으면 바로 직전의 user message 찾기
-    const messageIndex = messages.findIndex((m) => m.id === message.id);
-    for (let i = messageIndex - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        return messages[i];
-      }
-    }
-    return undefined;
-  };
-
-  const userMessage = findUserMessageForAssistant();
-
-  // 같은 user message에 대해 다른 모델 응답이 이미 있는지 확인 (parent_message_id가 없는 경우)
-  const hasAlternativeResponseForUser = !isUser && userMessage
-    ? messages.some(
-        (m) =>
-          m.role === 'assistant' &&
-          m.id !== message.id &&
-          (m.parent_message_id === userMessage.id ||
-            // parent_message_id가 없는 경우, 같은 user message 이후의 다른 모델 응답 확인
-            (messages.findIndex((msg) => msg.id === m.id) > messages.findIndex((msg) => msg.id === userMessage.id) &&
-             m.model !== message.model))
-      )
-    : false;
-
-  const showAlternativeButton = !isUser && !hasAlternativeResponse && !hasAlternativeResponseForUser;
+  const alternativeModel = getAlternativeModel(message.model);
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className="flex justify-start">
       <div
         className={`
           max-w-[80%] rounded-2xl px-4 py-2
-          ${
-            isUser
-              ? 'bg-blue-500 text-white rounded-br-md'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md'
-          }
+          bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md
+          ${hasMultipleResponses && isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
         `}
       >
-        {!isUser && (
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-            <span>{getModelIcon(message.model)}</span>
-            <span>{getModelLabel(message.model)}</span>
-          </div>
-        )}
-        {isUser ? (
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
-        ) : (
-          <MarkdownRenderer content={message.content} />
-        )}
+        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+          <span>{getModelIcon(message.model)}</span>
+          <span>{getModelLabel(message.model)}</span>
+          {hasMultipleResponses && isSelected && (
+            <span className="ml-2 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded text-[10px]">
+              {t('chat.selectedAnswer')}
+            </span>
+          )}
+        </div>
+        <MarkdownRenderer content={message.content} />
 
-        {/* 다른 모델로 답변받기 버튼 */}
-        {showAlternativeButton && alternativeModel && onAlternativeResponse && (
-          <button
-            onClick={() => onAlternativeResponse(message)}
-            disabled={isLoadingAlternative}
-            className={`
-              mt-2 text-xs flex items-center gap-1 transition-colors
-              ${isLoadingAlternative
-                ? 'text-gray-400 cursor-not-allowed'
-                : 'text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400'
-              }
-            `}
-          >
-            🔄 {t('chat.alternativeResponse', {
-              model: getModelLabel(alternativeModel),
-            })}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {/* 다른 모델로 답변받기 버튼 */}
+          {showAlternativeButton && onAlternativeResponse && (
+            <button
+              onClick={() => onAlternativeResponse(message)}
+              disabled={isLoadingAlternative}
+              className={`
+                text-xs flex items-center gap-1 transition-colors
+                ${isLoadingAlternative
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400'
+                }
+              `}
+            >
+              🔄 {t('chat.alternativeResponse', {
+                model: getModelLabel(alternativeModel),
+              })}
+            </button>
+          )}
+
+          {/* 답변 선택 버튼 - 여러 응답이 있고 선택되지 않은 경우 */}
+          {hasMultipleResponses && !isSelected && onSelect && (
+            <button
+              onClick={() => onSelect(message)}
+              className="text-xs flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+            >
+              ✓ {t('chat.selectAnswer')}
+            </button>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+interface MessageGroupComponentProps {
+  group: MessageGroup;
+  onAlternativeResponse?: (message: Message) => void;
+  isLoadingAlternative?: boolean;
+  selectedAnswerId: string | null;
+  onSelectAnswer: (message: Message) => void;
+  allMessages: Message[];
+}
+
+function MessageGroupComponent({
+  group,
+  onAlternativeResponse,
+  isLoadingAlternative,
+  selectedAnswerId,
+  onSelectAnswer,
+  allMessages,
+}: MessageGroupComponentProps) {
+  const hasMultipleResponses = group.assistantResponses.length > 1;
+
+  // 선택된 답변 결정: 명시적 선택이 있으면 그것, 없으면 첫 번째 응답
+  const effectiveSelectedId = selectedAnswerId || group.assistantResponses[0]?.id;
+
+  // 같은 user message에 대해 이미 다른 모델의 응답이 있는지 확인
+  const existingModels = new Set(group.assistantResponses.map(r => r.model));
+
+  return (
+    <div className="space-y-2">
+      {/* User message - 한 번만 표시 */}
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-blue-500 text-white rounded-br-md">
+          <div className="whitespace-pre-wrap break-words">{group.userMessage.content}</div>
+        </div>
+      </div>
+
+      {/* Assistant responses */}
+      {group.assistantResponses.map((response, index) => {
+        const isSelected = response.id === effectiveSelectedId;
+        // 다른 모델로 답변받기 버튼은 마지막 응답에만 표시하고, 아직 다른 모델 응답이 없을 때만
+        const showAlternativeButton = index === group.assistantResponses.length - 1 &&
+          group.assistantResponses.length < 2;
+
+        return (
+          <AssistantBubble
+            key={response.id}
+            message={response}
+            onAlternativeResponse={onAlternativeResponse}
+            isLoadingAlternative={isLoadingAlternative}
+            hasMultipleResponses={hasMultipleResponses}
+            isSelected={isSelected}
+            onSelect={onSelectAnswer}
+            showAlternativeButton={showAlternativeButton}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -163,6 +199,7 @@ export function MessageList() {
   const [loadingAlternativeFor, setLoadingAlternativeFor] = useState<string | null>(null);
   const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
   const lastScrollTop = useRef(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [creditData, setCreditData] = useState<{
     usageType: 'daily' | 'credits';
     tier: string;
@@ -183,6 +220,7 @@ export function MessageList() {
 
   const currentLocale = pathname.split('/')[1] || 'ko';
   const isInsufficientCredits = error === 'insufficient_credits';
+  const isDailyLimitReached = error === 'daily_request_limit';
   const activeModel = lastUsedModel || selectedModels[0];
   const activeModelInfo = activeModel ? AI_MODEL_INFO[activeModel] : null;
   const canPurchaseCredits = creditData?.usageType === 'credits' && creditData?.tier !== 'free';
@@ -196,6 +234,66 @@ export function MessageList() {
   const totalCredits = purchaseQuantity * 1000;
   const totalPrice = (pricePerUnit * purchaseQuantity).toFixed(2);
 
+  // 메시지를 그룹화 - user message와 그에 대한 assistant responses를 묶음
+  const messageGroups = useMemo(() => {
+    const groups: MessageGroup[] = [];
+    const userMessageMap = new Map<string, Message>();
+    const responsesByParent = new Map<string, Message[]>();
+
+    // 먼저 모든 user message를 맵에 저장
+    messages.forEach(msg => {
+      if (msg.role === 'user') {
+        userMessageMap.set(msg.id, msg);
+      }
+    });
+
+    // assistant message들을 parent_message_id로 그룹화
+    messages.forEach(msg => {
+      if (msg.role === 'assistant') {
+        const parentId = msg.parent_message_id;
+        if (parentId && userMessageMap.has(parentId)) {
+          const existing = responsesByParent.get(parentId) || [];
+          existing.push(msg);
+          responsesByParent.set(parentId, existing);
+        }
+      }
+    });
+
+    // 그룹 생성 - user message 순서대로
+    messages.forEach(msg => {
+      if (msg.role === 'user') {
+        const responses = responsesByParent.get(msg.id) || [];
+        // parent_message_id가 없는 assistant message 찾기 (레거시 지원)
+        const msgIndex = messages.indexOf(msg);
+        for (let i = msgIndex + 1; i < messages.length; i++) {
+          const nextMsg = messages[i];
+          if (nextMsg.role === 'user') break;
+          if (nextMsg.role === 'assistant' && !nextMsg.parent_message_id) {
+            if (!responses.find(r => r.id === nextMsg.id)) {
+              responses.push(nextMsg);
+            }
+          }
+        }
+
+        if (responses.length > 0) {
+          groups.push({
+            userMessage: msg,
+            assistantResponses: responses.sort((a, b) =>
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            ),
+          });
+        } else {
+          // 응답이 없는 user message도 표시
+          groups.push({
+            userMessage: msg,
+            assistantResponses: [],
+          });
+        }
+      }
+    });
+
+    return groups;
+  }, [messages]);
 
   // Check if user is near bottom (within 100px)
   const isNearBottom = useCallback(() => {
@@ -225,6 +323,12 @@ export function MessageList() {
 
     lastScrollTop.current = currentScrollTop;
   }, [activeStreamingModels.length, isNearBottom]);
+
+  // 스크롤 투 바텀 함수
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setUserHasScrolledUp(false);
+  }, []);
 
   // Reset userHasScrolledUp when streaming ends
   useEffect(() => {
@@ -328,6 +432,16 @@ export function MessageList() {
       setIsPurchasing(false);
     }
   };
+
+  // 답변 선택 핸들러
+  const handleSelectAnswer = useCallback((message: Message) => {
+    if (message.parent_message_id) {
+      setSelectedAnswers(prev => ({
+        ...prev,
+        [message.parent_message_id!]: message.id,
+      }));
+    }
+  }, []);
 
   const purchaseModal = showPurchaseModal && (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -501,7 +615,7 @@ export function MessageList() {
       if (!response.ok) {
         const errorData = await response.json();
         const errorCode = errorData?.error;
-        const errorMessage = errorCode === 'insufficient_credits'
+        const errorMessage = errorCode === 'insufficient_credits' || errorCode === 'daily_request_limit'
           ? errorCode
           : errorCode || errorData?.message || 'Failed to get alternative response';
         setError(errorMessage);
@@ -564,6 +678,129 @@ export function MessageList() {
     }
   };
 
+  // 에러 UI 컴포넌트
+  const ErrorUI = ({ fullWidth = false }: { fullWidth?: boolean }) => {
+    const widthClass = fullWidth ? 'w-full' : 'max-w-[80%] w-full';
+
+    if (isInsufficientCredits) {
+      return (
+        <div className={`${widthClass} bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-4`}>
+          <div className="text-2xl">💳</div>
+          <div className="flex-1 space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                {t('chat.insufficientCredits.title')}
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                {t('chat.insufficientCredits.description')}
+              </p>
+            </div>
+            <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+              {activeModelInfo && (
+                <p>
+                  {t('chat.insufficientCredits.cost', {
+                    model: activeModelInfo.name,
+                    credits: activeModelInfo.credits,
+                  })}
+                </p>
+              )}
+              {creditData?.credits && (
+                <p>
+                  {t('chat.insufficientCredits.balance', {
+                    available: creditData.credits.available.toLocaleString(),
+                  })}
+                </p>
+              )}
+              {isCreditLoading && (
+                <p>{t('chat.insufficientCredits.loading')}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canPurchaseCredits || !creditData ? (
+                <button
+                  onClick={handleOpenPurchaseModal}
+                  className="btn-primary px-4 py-2 text-sm"
+                >
+                  {t('chat.insufficientCredits.ctaPurchase')}
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push(`/${currentLocale}/plans`)}
+                  className="btn-primary px-4 py-2 text-sm"
+                >
+                  {t('chat.insufficientCredits.ctaUpgrade')}
+                </button>
+              )}
+              <button
+                onClick={clearError}
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (isDailyLimitReached) {
+      return (
+        <div className={`${widthClass} bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-4`}>
+          <div className="text-2xl">⏰</div>
+          <div className="flex-1 space-y-2">
+            <div>
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                {t('chat.dailyLimitReached.title')}
+              </p>
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                {t('chat.dailyLimitReached.description', { max: 10 })}
+              </p>
+            </div>
+            <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+              <p>{t('chat.dailyLimitReached.resetInfo')}</p>
+              <p>{t('chat.dailyLimitReached.upgradePrompt')}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => router.push(`/${currentLocale}/plans`)}
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                {t('chat.dailyLimitReached.ctaUpgrade')}
+              </button>
+              <button
+                onClick={clearError}
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`${widthClass} bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3`}>
+        <span className="text-red-500 text-lg">⚠️</span>
+        <div className="flex-1">
+          <p className="text-sm text-red-700 dark:text-red-300 font-medium">
+            {t('chat.errorOccurred')}
+          </p>
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+            {error}
+          </p>
+        </div>
+        <button
+          onClick={clearError}
+          className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  };
+
   if (messages.length === 0 && !isStreaming) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
@@ -579,83 +816,7 @@ export function MessageList() {
         {error && (
           <div className="w-full max-w-2xl">
             <div className="flex justify-center">
-              {isInsufficientCredits ? (
-                <div className="w-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-4">
-                  <div className="text-2xl">💳</div>
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-                        {t('chat.insufficientCredits.title')}
-                      </p>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                        {t('chat.insufficientCredits.description')}
-                      </p>
-                    </div>
-                    <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
-                      {activeModelInfo && (
-                        <p>
-                          {t('chat.insufficientCredits.cost', {
-                            model: activeModelInfo.name,
-                            credits: activeModelInfo.credits,
-                          })}
-                        </p>
-                      )}
-                      {creditData?.credits && (
-                        <p>
-                          {t('chat.insufficientCredits.balance', {
-                            available: creditData.credits.available.toLocaleString(),
-                          })}
-                        </p>
-                      )}
-                      {isCreditLoading && (
-                        <p>{t('chat.insufficientCredits.loading')}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {canPurchaseCredits || !creditData ? (
-                        <button
-                          onClick={handleOpenPurchaseModal}
-                          className="btn-primary px-4 py-2 text-sm"
-                        >
-                          {t('chat.insufficientCredits.ctaPurchase')}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => router.push(`/${currentLocale}/plans`)}
-                          className="btn-primary px-4 py-2 text-sm"
-                        >
-                          {t('chat.insufficientCredits.ctaUpgrade')}
-                        </button>
-                      )}
-                      <button
-                        onClick={clearError}
-                        className="btn-secondary px-4 py-2 text-sm"
-                      >
-                        {t('common.close')}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3">
-                  <span className="text-red-500 text-lg">⚠️</span>
-                  <div className="flex-1">
-                    <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                      {t('chat.errorOccurred')}
-                    </p>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {error}
-                    </p>
-                  </div>
-                  <button
-                    onClick={clearError}
-                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
+              <ErrorUI fullWidth />
             </div>
           </div>
         )}
@@ -668,97 +829,24 @@ export function MessageList() {
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className="flex-1 overflow-y-auto p-4 space-y-4 relative"
     >
-      {messages.map((message) => (
-        <MessageBubble
-          key={message.id}
-          message={message}
-          messages={messages}
+      {/* 메시지 그룹 렌더링 */}
+      {messageGroups.map((group) => (
+        <MessageGroupComponent
+          key={group.userMessage.id}
+          group={group}
           onAlternativeResponse={handleAlternativeResponse}
-          isLoadingAlternative={loadingAlternativeFor === message.id || activeStreamingModels.length > 0}
+          isLoadingAlternative={loadingAlternativeFor !== null || activeStreamingModels.length > 0}
+          selectedAnswerId={selectedAnswers[group.userMessage.id] || null}
+          onSelectAnswer={handleSelectAnswer}
+          allMessages={messages}
         />
       ))}
 
       {error && (
         <div className="flex justify-center">
-          {isInsufficientCredits ? (
-            <div className="max-w-[80%] w-full bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-4">
-              <div className="text-2xl">💳</div>
-              <div className="flex-1 space-y-2">
-                <div>
-                  <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-                    {t('chat.insufficientCredits.title')}
-                  </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                    {t('chat.insufficientCredits.description')}
-                  </p>
-                </div>
-                <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
-                  {activeModelInfo && (
-                    <p>
-                      {t('chat.insufficientCredits.cost', {
-                        model: activeModelInfo.name,
-                        credits: activeModelInfo.credits,
-                      })}
-                    </p>
-                  )}
-                  {creditData?.credits && (
-                    <p>
-                      {t('chat.insufficientCredits.balance', {
-                        available: creditData.credits.available.toLocaleString(),
-                      })}
-                    </p>
-                  )}
-                  {isCreditLoading && (
-                    <p>{t('chat.insufficientCredits.loading')}</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {canPurchaseCredits || !creditData ? (
-                    <button
-                      onClick={handleOpenPurchaseModal}
-                      className="btn-primary px-4 py-2 text-sm"
-                    >
-                      {t('chat.insufficientCredits.ctaPurchase')}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => router.push(`/${currentLocale}/plans`)}
-                      className="btn-primary px-4 py-2 text-sm"
-                    >
-                      {t('chat.insufficientCredits.ctaUpgrade')}
-                    </button>
-                  )}
-                  <button
-                    onClick={clearError}
-                    className="btn-secondary px-4 py-2 text-sm"
-                  >
-                    {t('common.close')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="max-w-[80%] w-full bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-3">
-              <span className="text-red-500 text-lg">⚠️</span>
-              <div className="flex-1">
-                <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                  {t('chat.errorOccurred')}
-                </p>
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {error}
-                </p>
-              </div>
-              <button
-                onClick={clearError}
-                className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          <ErrorUI />
         </div>
       )}
 
@@ -776,6 +864,19 @@ export function MessageList() {
       ))}
 
       <div ref={bottomRef} />
+
+      {/* 스크롤 투 바텀 버튼 - 사용자가 위로 스크롤했을 때만 표시 */}
+      {userHasScrolledUp && (
+        <button
+          onClick={scrollToBottom}
+          className="fixed bottom-24 right-8 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 transition-all z-40"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+          </svg>
+          {t('chat.scrollToBottom')}
+        </button>
+      )}
 
       {purchaseModal}
     </div>
