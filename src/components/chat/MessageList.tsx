@@ -743,40 +743,9 @@ export function MessageList() {
       );
     }
 
+    // 일일 한도 소진은 입력창에서 표시하므로 MessageList에서는 표시하지 않음
     if (isDailyLimitReached) {
-      return (
-        <div className={`${widthClass} bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-4`}>
-          <div className="text-2xl">⏰</div>
-          <div className="flex-1 space-y-2">
-            <div>
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                {t('chat.dailyLimitReached.title')}
-              </p>
-              <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                {t('chat.dailyLimitReached.description', { max: 10 })}
-              </p>
-            </div>
-            <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-              <p>{t('chat.dailyLimitReached.resetInfo')}</p>
-              <p>{t('chat.dailyLimitReached.upgradePrompt')}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => router.push(`/${currentLocale}/plans`)}
-                className="btn-primary px-4 py-2 text-sm"
-              >
-                {t('chat.dailyLimitReached.ctaUpgrade')}
-              </button>
-              <button
-                onClick={clearError}
-                className="btn-secondary px-4 py-2 text-sm"
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
-      );
+      return null;
     }
 
     return (

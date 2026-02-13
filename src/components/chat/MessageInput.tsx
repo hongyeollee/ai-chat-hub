@@ -2,17 +2,21 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, usePathname } from 'next/navigation';
 import { useChatStore } from '@/stores/chatStore';
 import type { AIModel } from '@/types';
 
 export function MessageInput() {
   const t = useTranslations();
+  const router = useRouter();
+  const pathname = usePathname();
   const [input, setInput] = useState('');
   const {
     currentConversationId,
     selectedModels,
     lastUsedModel,
     isStreaming,
+    error,
     addMessage,
     addConversation,
     setCurrentConversationId,
@@ -29,6 +33,10 @@ export function MessageInput() {
     updateMessageId,
     removeMessage,
   } = useChatStore();
+
+  const currentLocale = pathname.split('/')[1] || 'ko';
+  const isDailyLimitReached = error === 'daily_request_limit';
+  const isInsufficientCredits = error === 'insufficient_credits';
 
   const refreshUsage = async (remainingRequests?: number) => {
     if (typeof window === 'undefined') return;
@@ -325,6 +333,53 @@ export function MessageInput() {
       handleSubmit(e);
     }
   };
+
+  // 일일 한도 소진 또는 크레딧 부족 시 읽기 전용 모드 UI
+  if (isDailyLimitReached || isInsufficientCredits) {
+    return (
+      <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+        <div className={`
+          flex items-center justify-between gap-4 px-4 py-3 rounded-lg
+          ${isDailyLimitReached
+            ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800'
+            : 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800'
+          }
+        `}>
+          <div className="flex items-center gap-3">
+            <span className="text-xl">{isDailyLimitReached ? '⏰' : '💳'}</span>
+            <div>
+              <p className={`text-sm font-medium ${
+                isDailyLimitReached
+                  ? 'text-blue-800 dark:text-blue-200'
+                  : 'text-amber-800 dark:text-amber-200'
+              }`}>
+                {isDailyLimitReached
+                  ? t('chat.dailyLimitReached.title')
+                  : t('chat.insufficientCredits.title')
+                }
+              </p>
+              <p className={`text-xs ${
+                isDailyLimitReached
+                  ? 'text-blue-600 dark:text-blue-300'
+                  : 'text-amber-600 dark:text-amber-300'
+              }`}>
+                {isDailyLimitReached
+                  ? t('chat.dailyLimitReached.resetInfo')
+                  : t('chat.insufficientCredits.description')
+                }
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push(`/${currentLocale}/plans`)}
+            className="btn-primary px-4 py-2 text-sm whitespace-nowrap"
+          >
+            {t('chat.dailyLimitReached.ctaUpgrade')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 dark:border-gray-800">
