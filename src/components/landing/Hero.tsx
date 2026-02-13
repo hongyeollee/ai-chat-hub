@@ -31,7 +31,7 @@ export function Hero() {
         {/* Logo */}
         <div className="mb-8 flex justify-center">
           <Image
-            src="/logo.png"
+            src="/logo-hero.png"
             alt="Nexuan Logo"
             width={120}
             height={120}

@@ -7,6 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
 import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import type { Profile } from '@/types';
 
 interface UsageData {
@@ -106,8 +107,15 @@ export function Header() {
       <div className="flex items-center gap-2">
         <Link
           href={`/${currentLocale}`}
-          className="text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
         >
+          <Image
+            src="/logo-header.png"
+            alt="Nexuan"
+            width={28}
+            height={28}
+            className="rounded-md"
+          />
           {t('common.appName')}
         </Link>
       </div>
