@@ -96,7 +96,18 @@
       "loading": "크레딧 정보를 불러오는 중...",
       "ctaPurchase": "크레딧 충전",
       "ctaUpgrade": "플랜 업그레이드"
-    }
+    },
+    "dailyLimitReached": {
+      "title": "오늘 사용 가능한 횟수를 모두 사용했습니다",
+      "description": "무료 플랜은 하루 {max}회까지 사용할 수 있어요.",
+      "resetInfo": "내일 자정(한국 시간)에 초기화됩니다.",
+      "upgradePrompt": "더 많이 사용하고 싶으시다면 플랜을 업그레이드해보세요.",
+      "ctaUpgrade": "플랜 업그레이드"
+    },
+    "scrollToBottom": "최신 메시지로 이동",
+    "selectAnswer": "이 답변 선택",
+    "selectedAnswer": "선택됨",
+    "continueFrom": "이 답변으로 대화 이어가기"
   },
   "model": {
     "select": "모델 선택",

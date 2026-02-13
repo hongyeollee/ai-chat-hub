@@ -96,7 +96,18 @@
       "loading": "Loading credit balance...",
       "ctaPurchase": "Purchase credits",
       "ctaUpgrade": "Upgrade plan"
-    }
+    },
+    "dailyLimitReached": {
+      "title": "Daily limit reached",
+      "description": "Free plan allows up to {max} requests per day.",
+      "resetInfo": "Resets at midnight (KST).",
+      "upgradePrompt": "Want more? Upgrade your plan for unlimited access.",
+      "ctaUpgrade": "Upgrade Plan"
+    },
+    "scrollToBottom": "Jump to latest",
+    "selectAnswer": "Select this answer",
+    "selectedAnswer": "Selected",
+    "continueFrom": "Continue from this answer"
   },
   "model": {
     "select": "Select model",

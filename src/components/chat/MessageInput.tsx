@@ -24,6 +24,10 @@ export function MessageInput() {
     removeActiveStreamingModel,
     appendStreamingContentForModel,
     clearAllStreamingContents,
+    setPendingUserMessage,
+    clearPendingUserMessage,
+    updateMessageId,
+    removeMessage,
   } = useChatStore();
 
   const refreshUsage = async (remainingRequests?: number) => {
@@ -57,7 +61,8 @@ export function MessageInput() {
     content: string,
     model: AIModel,
     conversationId: string | null,
-    userMessageId?: string
+    userMessageId?: string,
+    tempMessageId?: string  // Optimistic UI용 임시 메시지 ID
   ): Promise<{
     conversationId: string;
     userMessageId: string;
@@ -138,8 +143,21 @@ export function MessageInput() {
                   });
                 }
 
-                // 첫 번째 모델의 요청에서만 user message 추가
-                if (!userMessageId && resultUserMessageId) {
+                // Optimistic UI: 임시 메시지 ID를 실제 ID로 업데이트
+                if (tempMessageId && resultUserMessageId) {
+                  updateMessageId(tempMessageId, resultUserMessageId);
+                  // conversation_id도 업데이트 (새 대화인 경우)
+                  if (resultConversationId) {
+                    const currentMessages = useChatStore.getState().messages;
+                    const updatedMessages = currentMessages.map((m) =>
+                      m.id === resultUserMessageId
+                        ? { ...m, conversation_id: resultConversationId }
+                        : m
+                    );
+                    useChatStore.setState({ messages: updatedMessages });
+                  }
+                } else if (!userMessageId && resultUserMessageId && !tempMessageId) {
+                  // 기존 로직: 임시 메시지가 없는 경우에만 새로 추가
                   addMessage({
                     id: resultUserMessageId,
                     conversation_id: resultConversationId,
@@ -208,9 +226,31 @@ export function MessageInput() {
     clearAllStreamingContents();
     clearError();
 
+    // Optimistic UI: 사용자 메시지를 즉시 표시
+    const tempMessageId = `temp-${Date.now()}`;
+    const tempUserMessage = {
+      id: tempMessageId,
+      conversation_id: currentConversationId || 'temp-conversation',
+      role: 'user' as const,
+      content,
+      model: selectedModels[0],
+      created_at: new Date().toISOString(),
+    };
+
+    // 임시 메시지를 바로 messages에 추가
+    addMessage(tempUserMessage);
+
     if (selectedModels.length === 1) {
       // 단일 모델 - 기존 로직
-      await streamSingleModel(content, selectedModels[0], currentConversationId);
+      const result = await streamSingleModel(content, selectedModels[0], currentConversationId, undefined, tempMessageId);
+      // 에러 발생 시 임시 메시지 제거 (ID가 업데이트되지 않은 경우)
+      if (!result.success && tempMessageId) {
+        const messages = useChatStore.getState().messages;
+        const stillTemp = messages.find((m) => m.id === tempMessageId);
+        if (stillTemp) {
+          removeMessage(tempMessageId);
+        }
+      }
     } else {
       // 두 모델 동시 응답 - 병렬 처리
       // 첫 번째 모델로 먼저 요청을 시작하여 conversation과 user message 생성
@@ -220,7 +260,7 @@ export function MessageInput() {
       // 병렬로 두 모델 스트리밍 시작
       // 첫 번째 모델이 conversationId와 userMessageId를 생성하면
       // 두 번째 모델도 같은 conversation에 응답을 추가
-      const firstPromise = streamSingleModel(content, firstModel, currentConversationId);
+      const firstPromise = streamSingleModel(content, firstModel, currentConversationId, undefined, tempMessageId);
 
       // 약간의 지연 후 두 번째 요청 시작 (첫 번째 요청이 conversation 생성할 시간 확보)
       const secondPromise = new Promise<void>(async (resolve) => {
@@ -239,7 +279,7 @@ export function MessageInput() {
         }
 
         if (convId) {
-          // 첫 번째 모델의 userMessageId를 찾기
+          // 첫 번째 모델의 userMessageId를 찾기 (업데이트된 ID 사용)
           const messages = useChatStore.getState().messages;
           const userMessage = messages.find(
             (m) => m.conversation_id === convId && m.role === 'user' && m.content === content
@@ -251,7 +291,15 @@ export function MessageInput() {
         resolve();
       });
 
-      await Promise.all([firstPromise, secondPromise]);
+      const [firstResult] = await Promise.all([firstPromise, secondPromise]);
+      // 첫 번째 모델 에러 시 임시 메시지 제거
+      if (!firstResult.success && tempMessageId) {
+        const messages = useChatStore.getState().messages;
+        const stillTemp = messages.find((m) => m.id === tempMessageId);
+        if (stillTemp) {
+          removeMessage(tempMessageId);
+        }
+      }
     }
 
     clearAllStreamingContents();
