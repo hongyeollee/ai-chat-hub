@@ -8,6 +8,7 @@ interface ChatState {
 
   // Messages
   messages: Message[];
+  pendingUserMessage: Message | null;  // Optimistic UI용 임시 사용자 메시지
   isStreaming: boolean;
   streamingContent: string;
 
@@ -32,6 +33,10 @@ interface ChatState {
 
   setMessages: (messages: Message[]) => void;
   addMessage: (message: Message) => void;
+  removeMessage: (id: string) => void;
+  updateMessageId: (tempId: string, newId: string) => void;
+  setPendingUserMessage: (message: Message | null) => void;
+  clearPendingUserMessage: () => void;
 
   setIsStreaming: (isStreaming: boolean) => void;
   setStreamingContent: (content: string) => void;
@@ -63,6 +68,7 @@ const initialState = {
   conversations: [],
   currentConversationId: null,
   messages: [],
+  pendingUserMessage: null as Message | null,
   isStreaming: false,
   streamingContent: '',
   selectedModels: ['gemini-2.5-flash'] as AIModel[],
@@ -106,6 +112,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: [...state.messages, message],
     })),
+
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
+    })),
+
+  updateMessageId: (tempId, newId) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === tempId ? { ...m, id: newId } : m
+      ),
+    })),
+
+  setPendingUserMessage: (message) => set({ pendingUserMessage: message }),
+
+  clearPendingUserMessage: () => set({ pendingUserMessage: null }),
 
   setIsStreaming: (isStreaming) => set({ isStreaming }),
 
