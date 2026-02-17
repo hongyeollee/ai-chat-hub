@@ -88,6 +88,10 @@ export function prepareMessagesForAIByTier(
 
 /**
  * 모델 전환 시 컨텍스트 구성
+ * 최근 대화 내용을 문자열로 변환하여 새 모델에 전달
+ * @param messages - 전체 메시지 배열
+ * @param maxMessages - 포함할 최대 메시지 수 (기본값: MODEL_SWITCH_CONTEXT_TURNS * 2 = 6개, 최근 3턴)
+ * @returns 최근 대화 내용 문자열 또는 null
  */
 export function buildModelSwitchContext(
   messages: Message[],

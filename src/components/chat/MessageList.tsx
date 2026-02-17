@@ -59,57 +59,78 @@ function AssistantBubble({
   const t = useTranslations();
   const alternativeModel = getAlternativeModel(message.model);
 
-  return (
-    <div className="flex justify-start">
-      <div
-        className={`
-          max-w-[80%] rounded-2xl px-4 py-2
-          bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md
-          ${hasMultipleResponses && isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''}
-        `}
-      >
-        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-          <span>{getModelIcon(message.model)}</span>
-          <span>{getModelLabel(message.model)}</span>
-          {hasMultipleResponses && isSelected && (
-            <span className="ml-2 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded text-[10px]">
-              {t('chat.selectedAnswer')}
-            </span>
-          )}
-        </div>
-        <MarkdownRenderer content={message.content} />
+  // 단일 응답일 때는 기존 스타일, 다중 응답일 때는 카드 스타일
+  if (!hasMultipleResponses) {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md">
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+            <span>{getModelIcon(message.model)}</span>
+            <span>{getModelLabel(message.model)}</span>
+          </div>
+          <MarkdownRenderer content={message.content} />
 
-        <div className="flex flex-wrap gap-2 mt-2">
-          {/* 다른 모델로 답변받기 버튼 */}
           {showAlternativeButton && onAlternativeResponse && (
-            <button
-              onClick={() => onAlternativeResponse(message)}
-              disabled={isLoadingAlternative}
-              className={`
-                text-xs flex items-center gap-1 transition-colors
-                ${isLoadingAlternative
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400'
-                }
-              `}
-            >
-              🔄 {t('chat.alternativeResponse', {
-                model: getModelLabel(alternativeModel),
-              })}
-            </button>
-          )}
-
-          {/* 답변 선택 버튼 - 여러 응답이 있고 선택되지 않은 경우 */}
-          {hasMultipleResponses && !isSelected && onSelect && (
-            <button
-              onClick={() => onSelect(message)}
-              className="text-xs flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-            >
-              ✓ {t('chat.selectAnswer')}
-            </button>
+            <div className="mt-2">
+              <button
+                onClick={() => onAlternativeResponse(message)}
+                disabled={isLoadingAlternative}
+                className={`
+                  text-xs flex items-center gap-1 transition-colors
+                  ${isLoadingAlternative
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-500 hover:text-blue-500 dark:text-gray-400 dark:hover:text-blue-400'
+                  }
+                `}
+              >
+                🔄 {t('chat.alternativeResponse', {
+                  model: getModelLabel(alternativeModel),
+                })}
+              </button>
+            </div>
           )}
         </div>
       </div>
+    );
+  }
+
+  // 다중 응답 - 카드 스타일
+  return (
+    <div
+      className={`
+        rounded-2xl px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white
+        border-2 transition-all
+        ${isSelected
+          ? 'border-blue-500 dark:border-blue-400 shadow-md'
+          : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+        }
+      `}
+    >
+      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1 pb-2 border-b border-gray-200 dark:border-gray-700">
+        <span className="text-base">{getModelIcon(message.model)}</span>
+        <span className="font-medium">{getModelLabel(message.model)}</span>
+        {isSelected && (
+          <span className="ml-auto px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full text-[10px] font-medium">
+            {t('chat.selectedAnswer')}
+          </span>
+        )}
+      </div>
+
+      <div className="max-h-[400px] overflow-y-auto">
+        <MarkdownRenderer content={message.content} />
+      </div>
+
+      {/* 선택 버튼 - 선택되지 않은 응답에만 표시 */}
+      {!isSelected && onSelect && (
+        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => onSelect(message)}
+            className="text-xs flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+          >
+            ✓ {t('chat.selectAnswer')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -132,15 +153,13 @@ function MessageGroupComponent({
   allMessages,
 }: MessageGroupComponentProps) {
   const hasMultipleResponses = group.assistantResponses.length > 1;
+  const responseCount = group.assistantResponses.length;
 
   // 선택된 답변 결정: 명시적 선택이 있으면 그것, 없으면 첫 번째 응답
   const effectiveSelectedId = selectedAnswerId || group.assistantResponses[0]?.id;
 
-  // 같은 user message에 대해 이미 다른 모델의 응답이 있는지 확인
-  const existingModels = new Set(group.assistantResponses.map(r => r.model));
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* User message - 한 번만 표시 */}
       <div className="flex justify-end">
         <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-blue-500 text-white rounded-br-md">
@@ -148,26 +167,33 @@ function MessageGroupComponent({
         </div>
       </div>
 
-      {/* Assistant responses */}
-      {group.assistantResponses.map((response, index) => {
-        const isSelected = response.id === effectiveSelectedId;
-        // 다른 모델로 답변받기 버튼은 마지막 응답에만 표시하고, 아직 다른 모델 응답이 없을 때만
-        const showAlternativeButton = index === group.assistantResponses.length - 1 &&
-          group.assistantResponses.length < 2;
+      {/* Assistant responses - 여러 개일 때 그리드 레이아웃 */}
+      {responseCount > 0 && (
+        <div className={`
+          ${hasMultipleResponses ? 'grid gap-3' : ''}
+          ${responseCount === 2 ? 'grid-cols-1 md:grid-cols-2' : ''}
+          ${responseCount >= 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : ''}
+        `}>
+          {group.assistantResponses.map((response, index) => {
+            const isSelected = response.id === effectiveSelectedId;
+            // 다른 모델로 답변받기 버튼은 응답이 1개일 때만 표시
+            const showAlternativeButton = responseCount === 1;
 
-        return (
-          <AssistantBubble
-            key={response.id}
-            message={response}
-            onAlternativeResponse={onAlternativeResponse}
-            isLoadingAlternative={isLoadingAlternative}
-            hasMultipleResponses={hasMultipleResponses}
-            isSelected={isSelected}
-            onSelect={onSelectAnswer}
-            showAlternativeButton={showAlternativeButton}
-          />
-        );
-      })}
+            return (
+              <AssistantBubble
+                key={response.id}
+                message={response}
+                onAlternativeResponse={onAlternativeResponse}
+                isLoadingAlternative={isLoadingAlternative}
+                hasMultipleResponses={hasMultipleResponses}
+                isSelected={isSelected}
+                onSelect={onSelectAnswer}
+                showAlternativeButton={showAlternativeButton}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -850,18 +876,34 @@ export function MessageList() {
         </div>
       )}
 
-      {/* 멀티 모델 스트리밍 메시지 표시 */}
-      {activeStreamingModels.map((model) => (
-        <div key={model} className="flex justify-start">
-          <div className="max-w-[80%] rounded-2xl px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md">
-            <div className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-              <span>{getModelIcon(model)}</span>
-              <span>{getModelLabel(model)}</span>
+      {/* 멀티 모델 스트리밍 메시지 표시 - 그리드 레이아웃 */}
+      {activeStreamingModels.length > 0 && (
+        <div className={`
+          grid gap-3
+          ${activeStreamingModels.length === 1 ? 'grid-cols-1' : ''}
+          ${activeStreamingModels.length === 2 ? 'grid-cols-1 md:grid-cols-2' : ''}
+          ${activeStreamingModels.length >= 3 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : ''}
+        `}>
+          {activeStreamingModels.map((model) => (
+            <div
+              key={model}
+              className="rounded-2xl px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700"
+            >
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1 pb-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-base">{getModelIcon(model)}</span>
+                <span className="font-medium">{getModelLabel(model)}</span>
+                <span className="ml-auto flex items-center gap-1 text-blue-500">
+                  <span className="animate-pulse">●</span>
+                  <span className="text-[10px]">응답 중</span>
+                </span>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                <StreamingMessage content={streamingContents[model] || ''} />
+              </div>
             </div>
-            <StreamingMessage content={streamingContents[model] || ''} />
-          </div>
+          ))}
         </div>
-      ))}
+      )}
 
       <div ref={bottomRef} />
 
