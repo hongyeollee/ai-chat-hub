@@ -240,38 +240,22 @@ export function MessageInput() {
     // 임시 메시지를 바로 messages에 추가
     addMessage(tempUserMessage);
 
-    if (selectedModels.length === 1) {
-      // 단일 모델 - 기존 로직
-      const result = await streamSingleModel(content, selectedModels[0], currentConversationId, undefined, tempMessageId);
-      // 에러 발생 시 임시 메시지 제거 (ID가 업데이트되지 않은 경우)
-      if (!result.success && tempMessageId) {
-        const messages = useChatStore.getState().messages;
-        const stillTemp = messages.find((m) => m.id === tempMessageId);
-        if (stillTemp) {
-          removeMessage(tempMessageId);
-        }
-      }
-    } else {
-      // 두 모델 동시 응답 - 병렬 처리
-      // 첫 번째 모델로 먼저 요청을 시작하여 conversation과 user message 생성
-      const firstModel = selectedModels[0];
-      const secondModel = selectedModels[1];
+    // N개 모델 동시 응답 - 동적 병렬 처리
+    const [firstModel, ...restModels] = selectedModels;
 
-      // 병렬로 두 모델 스트리밍 시작
-      // 첫 번째 모델이 conversationId와 userMessageId를 생성하면
-      // 두 번째 모델도 같은 conversation에 응답을 추가
-      const firstPromise = streamSingleModel(content, firstModel, currentConversationId, undefined, tempMessageId);
+    // 첫 번째 모델로 요청하여 conversation과 user message 생성
+    const firstPromise = streamSingleModel(content, firstModel, currentConversationId, undefined, tempMessageId);
 
-      // 약간의 지연 후 두 번째 요청 시작 (첫 번째 요청이 conversation 생성할 시간 확보)
-      const secondPromise = new Promise<void>(async (resolve) => {
+    // 나머지 모델들은 첫 번째 요청에서 conversationId가 생성된 후 병렬 처리
+    const restPromises = restModels.map((model) =>
+      new Promise<void>(async (resolve) => {
         // 첫 번째 요청에서 conversationId가 생성될 때까지 대기
         await new Promise((r) => setTimeout(r, 100));
 
-        // 현재 conversationId 가져오기
         let convId = currentConversationId;
         let attempts = 0;
 
-        // 새 대화인 경우 conversationId가 생성될 때까지 대기
+        // 새 대화인 경우 conversationId가 생성될 때까지 대기 (최대 3초)
         while (!convId && attempts < 30) {
           await new Promise((r) => setTimeout(r, 100));
           convId = useChatStore.getState().currentConversationId;
@@ -285,20 +269,21 @@ export function MessageInput() {
             (m) => m.conversation_id === convId && m.role === 'user' && m.content === content
           );
 
-          await streamSingleModel(content, secondModel, convId, userMessage?.id);
+          await streamSingleModel(content, model, convId, userMessage?.id);
         }
 
         resolve();
-      });
+      })
+    );
 
-      const [firstResult] = await Promise.all([firstPromise, secondPromise]);
-      // 첫 번째 모델 에러 시 임시 메시지 제거
-      if (!firstResult.success && tempMessageId) {
-        const messages = useChatStore.getState().messages;
-        const stillTemp = messages.find((m) => m.id === tempMessageId);
-        if (stillTemp) {
-          removeMessage(tempMessageId);
-        }
+    const [firstResult] = await Promise.all([firstPromise, ...restPromises]);
+
+    // 첫 번째 모델 에러 시 임시 메시지 제거
+    if (!firstResult.success && tempMessageId) {
+      const messages = useChatStore.getState().messages;
+      const stillTemp = messages.find((m) => m.id === tempMessageId);
+      if (stillTemp) {
+        removeMessage(tempMessageId);
       }
     }
 

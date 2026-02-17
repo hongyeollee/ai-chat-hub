@@ -67,6 +67,7 @@ export async function* streamMistral(
   const stream = await client.chat.stream({
     model: providerModelId,
     messages: chatMessages,
+    maxTokens: 4096,
   });
 
   for await (const event of stream) {

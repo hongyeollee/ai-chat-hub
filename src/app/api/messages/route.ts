@@ -228,10 +228,11 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: true });
 
     // 메모리 활성화 여부에 따라 컨텍스트 메시지 처리
-    // memoryEnabled가 false면 이전 대화 컨텍스트 없이 현재 메시지만 사용
+    // memoryEnabled가 false여도 최근 4개 메시지는 포함 (연속 대화 context 보장)
+    const MIN_CONTEXT_MESSAGES = 4;
     let contextMessages = memoryEnabled
       ? getMessagesForContextByTier((allMessages as Message[]) || [], tier)
-      : [];
+      : ((allMessages as Message[]) || []).slice(-MIN_CONTEXT_MESSAGES);
 
     if (contextMessages.length === 0) {
       contextMessages = [

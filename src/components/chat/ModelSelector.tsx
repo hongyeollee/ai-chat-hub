@@ -58,6 +58,15 @@ export function ModelSelector() {
 
   return (
     <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+      {/* 선택된 모델 수 표시 */}
+      {selectedModels.length > 1 && (
+        <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded-md mr-1">
+          <span className="text-blue-600 dark:text-blue-400 text-xs font-medium">
+            {selectedModels.length}개 동시 응답
+          </span>
+        </div>
+      )}
+
       {filteredProviders.map((provider) => {
         const isSelected = selectedModels.includes(provider.model);
         const isOnlySelected = isSelected && selectedModels.length === 1;

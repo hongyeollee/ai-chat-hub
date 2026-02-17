@@ -5,6 +5,12 @@ import { useTranslations } from 'next-intl';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import {
+  detectInAppBrowser,
+  openInExternalBrowser,
+  getInAppBrowserMessage,
+  copyUrlToClipboard,
+} from '@/lib/utils/inAppBrowser';
 
 // Password validation check icon component
 function CheckIcon({ valid }: { valid: boolean }) {
@@ -47,11 +53,25 @@ export function SignupForm() {
   const [privacyAgreed, setPrivacyAgreed] = useState(false);
   const [marketingAgreed, setMarketingAgreed] = useState(false);
 
+  // 인앱 브라우저 감지
+  const [inAppBrowserInfo, setInAppBrowserInfo] = useState<{
+    isInAppBrowser: boolean;
+    browserName: string | null;
+  }>({ isInAppBrowser: false, browserName: null });
+  const [showInAppWarning, setShowInAppWarning] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (initialEmail) {
       setEmail(initialEmail);
     }
   }, [initialEmail]);
+
+  // 인앱 브라우저 감지
+  useEffect(() => {
+    const info = detectInAppBrowser();
+    setInAppBrowserInfo(info);
+  }, []);
 
   // Real-time password validation
   const passwordChecks = useMemo(() => {
@@ -99,8 +119,29 @@ export function SignupForm() {
     return true;
   };
 
+  const handleCopyUrl = async () => {
+    const success = await copyUrlToClipboard();
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const inAppMessage = getInAppBrowserMessage(inAppBrowserInfo.browserName, locale);
+
   const handleGoogleSignup = async () => {
     if (!validateConsent()) return;
+
+    // 인앱 브라우저인 경우 외부 브라우저로 열기 시도
+    if (inAppBrowserInfo.isInAppBrowser) {
+      const opened = openInExternalBrowser();
+      if (!opened) {
+        // 외부 브라우저 열기 실패 시 안내 메시지 표시
+        setShowInAppWarning(true);
+        return;
+      }
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -323,6 +364,40 @@ export function SignupForm() {
             </span>
           </label>
         </div>
+
+        {/* 인앱 브라우저 경고 */}
+        {showInAppWarning && (
+          <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl animate-fade-in">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1">
+                <p className="font-semibold text-amber-700 dark:text-amber-300 mb-1">
+                  {inAppMessage.title}
+                </p>
+                <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
+                  {inAppMessage.description}
+                </p>
+                <p className="text-xs text-amber-600/80 dark:text-amber-400/80 mb-3">
+                  {inAppMessage.instruction}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={handleCopyUrl}
+                    className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg text-sm transition-colors"
+                  >
+                    {copied ? '✓ 복사됨!' : '📋 URL 복사'}
+                  </button>
+                  <button
+                    onClick={() => setShowInAppWarning(false)}
+                    className="px-3 py-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg text-sm transition-colors"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleGoogleSignup}
