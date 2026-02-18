@@ -107,6 +107,7 @@
     "scrollToBottom": "Jump to latest",
     "selectAnswer": "Select this answer",
     "selectedAnswer": "Selected",
+    "clickToSelect": "Click to select",
     "continueFrom": "Continue from this answer"
   },
   "model": {

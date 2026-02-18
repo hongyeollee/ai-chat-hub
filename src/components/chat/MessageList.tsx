@@ -94,15 +94,22 @@ function AssistantBubble({
     );
   }
 
-  // 다중 응답 - 카드 스타일
+  // 다중 응답 - 카드 스타일 (카드 전체 클릭으로 선택 가능)
+  const handleCardClick = () => {
+    if (!isSelected && onSelect) {
+      onSelect(message);
+    }
+  };
+
   return (
     <div
+      onClick={handleCardClick}
       className={`
         rounded-2xl px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white
         border-2 transition-all
         ${isSelected
           ? 'border-blue-500 dark:border-blue-400 shadow-md'
-          : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
+          : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer'
         }
       `}
     >
@@ -114,23 +121,16 @@ function AssistantBubble({
             {t('chat.selectedAnswer')}
           </span>
         )}
+        {!isSelected && (
+          <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">
+            {t('chat.clickToSelect')}
+          </span>
+        )}
       </div>
 
       <div className="max-h-[400px] overflow-y-auto">
         <MarkdownRenderer content={message.content} />
       </div>
-
-      {/* 선택 버튼 - 선택되지 않은 응답에만 표시 */}
-      {!isSelected && onSelect && (
-        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={() => onSelect(message)}
-            className="text-xs flex items-center gap-1 text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            ✓ {t('chat.selectAnswer')}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

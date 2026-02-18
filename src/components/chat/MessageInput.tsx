@@ -240,43 +240,23 @@ export function MessageInput() {
     // 임시 메시지를 바로 messages에 추가
     addMessage(tempUserMessage);
 
-    // N개 모델 동시 응답 - 동적 병렬 처리
+    // N개 모델 동시 응답 - 첫 번째 모델이 conversationId와 userMessageId를 생성한 후 나머지 병렬 처리
     const [firstModel, ...restModels] = selectedModels;
 
     // 첫 번째 모델로 요청하여 conversation과 user message 생성
-    const firstPromise = streamSingleModel(content, firstModel, currentConversationId, undefined, tempMessageId);
+    const firstResult = await streamSingleModel(content, firstModel, currentConversationId, undefined, tempMessageId);
 
-    // 나머지 모델들은 첫 번째 요청에서 conversationId가 생성된 후 병렬 처리
-    const restPromises = restModels.map((model) =>
-      new Promise<void>(async (resolve) => {
-        // 첫 번째 요청에서 conversationId가 생성될 때까지 대기
-        await new Promise((r) => setTimeout(r, 100));
+    // 첫 번째 모델 성공 시 나머지 모델들 병렬 처리
+    if (firstResult.success && restModels.length > 0) {
+      const { conversationId: convId, userMessageId } = firstResult;
 
-        let convId = currentConversationId;
-        let attempts = 0;
+      // 나머지 모델들은 동일한 conversationId와 userMessageId 사용
+      const restPromises = restModels.map((model) =>
+        streamSingleModel(content, model, convId, userMessageId)
+      );
 
-        // 새 대화인 경우 conversationId가 생성될 때까지 대기 (최대 3초)
-        while (!convId && attempts < 30) {
-          await new Promise((r) => setTimeout(r, 100));
-          convId = useChatStore.getState().currentConversationId;
-          attempts++;
-        }
-
-        if (convId) {
-          // 첫 번째 모델의 userMessageId를 찾기 (업데이트된 ID 사용)
-          const messages = useChatStore.getState().messages;
-          const userMessage = messages.find(
-            (m) => m.conversation_id === convId && m.role === 'user' && m.content === content
-          );
-
-          await streamSingleModel(content, model, convId, userMessage?.id);
-        }
-
-        resolve();
-      })
-    );
-
-    const [firstResult] = await Promise.all([firstPromise, ...restPromises]);
+      await Promise.all(restPromises);
+    }
 
     // 첫 번째 모델 에러 시 임시 메시지 제거
     if (!firstResult.success && tempMessageId) {
