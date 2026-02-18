@@ -234,17 +234,40 @@ export async function POST(request: NextRequest) {
       ? getMessagesForContextByTier((allMessages as Message[]) || [], tier)
       : ((allMessages as Message[]) || []).slice(-MIN_CONTEXT_MESSAGES);
 
+    // 현재 요청의 user message 객체
+    const currentUserMessage: Message = {
+      id: userMessageId || 'temp-user-message',
+      conversation_id: actualConversationId || 'temp-conversation',
+      role: 'user',
+      content,
+      model,
+      created_at: new Date().toISOString(),
+    };
+
     if (contextMessages.length === 0) {
-      contextMessages = [
-        {
-          id: userMessageId || 'temp-user-message',
-          conversation_id: actualConversationId || 'temp-conversation',
-          role: 'user',
-          content,
-          model,
-          created_at: new Date().toISOString(),
-        },
-      ];
+      contextMessages = [currentUserMessage];
+    } else {
+      // 마지막 메시지가 user가 아니면 (다른 모델의 assistant 응답이 먼저 저장된 경우)
+      // 현재 user message를 마지막에 추가하여 API 요구사항 충족
+      // (Mistral 등 일부 API는 마지막 메시지가 user여야 함)
+      const lastMessage = contextMessages[contextMessages.length - 1];
+      if (lastMessage.role !== 'user') {
+        // 이미 현재 user message가 포함되어 있는지 확인
+        const hasCurrentUserMessage = contextMessages.some(
+          m => m.id === userMessageId || (m.role === 'user' && m.content === content)
+        );
+        if (!hasCurrentUserMessage) {
+          contextMessages = [...contextMessages, currentUserMessage];
+        } else {
+          // 현재 user message 이후의 다른 모델 assistant 응답들 제거
+          const currentUserIndex = contextMessages.findIndex(
+            m => m.id === userMessageId || (m.role === 'user' && m.content === content)
+          );
+          if (currentUserIndex !== -1 && currentUserIndex < contextMessages.length - 1) {
+            contextMessages = contextMessages.slice(0, currentUserIndex + 1);
+          }
+        }
+      }
     }
 
     // Pro/Enterprise 티어만 요약 사용 (메모리 비활성화 시 요약도 미사용)
